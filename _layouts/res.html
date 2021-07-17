@@ -1,0 +1,25 @@
+---
+layout: default
+---
+
+<div class="home">
+
+    <ul class="post-list">
+      {% for topic in site.data.books.topics %}
+      <li>
+
+  
+        <h1>{{topic.name}}: </h1>
+        <ul class="post-list">
+        {% for book in topic.books %}
+          <li>
+          <a class="post-link" href="{{book.link}}"><h5>{{book.name}}</h5></a>
+          </li>
+        {% endfor %}
+        </ul>
+
+      </li>
+      {%- endfor -%}
+    </ul>
+
+</div>

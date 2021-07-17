@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+<title>Flare-on challenge 11 | HOME</title>
+<meta name="generator" content="Jekyll v3.9.0" />
+<meta property="og:title" content="Flare-on challenge 11" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Please read the disclaimer" />
+<meta property="og:description" content="Please read the disclaimer" />
+<link rel="canonical" href="http://localhost:4000/2018/10/02/flare-on5-chall11.html" />
+<meta property="og:url" content="http://localhost:4000/2018/10/02/flare-on5-chall11.html" />
+<meta property="og:site_name" content="HOME" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2018-10-02T12:08:00-05:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Flare-on challenge 11" />
+<script type="application/ld+json">
+{"description":"Please read the disclaimer","@type":"BlogPosting","headline":"Flare-on challenge 11","dateModified":"2018-10-02T12:08:00-05:00","datePublished":"2018-10-02T12:08:00-05:00","url":"http://localhost:4000/2018/10/02/flare-on5-chall11.html","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2018/10/02/flare-on5-chall11.html"},"@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="HOME" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">HOME</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a><a class="page-link" href="/contact/">Contact</a><a class="page-link" href="/quotes/">Quotes</a><a class="page-link" href="/resources/">Training resources</a><a class="page-link" href="/disclaimer/">Disclaimer</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Flare-on challenge 11</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2018-10-02T12:08:00-05:00" itemprop="datePublished">Oct 2, 2018
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <h2 id="please-read-the-disclaimer">Please read the <a href="/disclaimer/">disclaimer</a></h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>We captured some malware traffic, and the malware we think was responsible. 
+You know the drill, if you reverse engineer and decode everything 
+appropriately you will reveal a hidden message. 
+This challenge thinks its the 9th but it turned out too hard, 
+so we made it the 11th.
+</code></pre></div></div>
+
+<p><strong>Note</strong>: I’m sorry the writeup is a bit messy, I couldn’t find the time to write it properly, if you have any question please contact me, have fun :D
+I will update it whenever I find some free time.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The goal of this challenge is to analyze a malware and a given <strong>network packet capture</strong> (pcap) that contains the communication of the malware with a <strong>C&amp;C server</strong>.</p>
+
+<h2 id="analyzing-the-pcap-part-and-the-malware">Analyzing the pcap part and the malware</h2>
+
+<p>We can see that there are 4 important tcp streams and many dns queries for TXT record, let’s see that in depth:</p>
+
+<h3 id="udp-queries">UDP QUERIES:</h3>
+
+<p><img src="/assets/img/flare-on/chall11/dnsquery_all.png" alt="dnsquery_all" /></p>
+
+<p>We can see that the malware query TXT record of different subdomains starting from <code class="language-plaintext highlighter-rouge">aaa.asdflkjsadf.notatallsuspicio.us</code> then <code class="language-plaintext highlighter-rouge">aab.asdflkjsadf.notatallsuspicio.us</code> etc…</p>
+
+<p><img src="/assets/img/flare-on/chall11/dns_base64.png" alt="dns_base64" /></p>
+
+<p>the query response contains a base64 encoded data.</p>
+
+<h3 id="tcp-streams">TCP STREAMS:</h3>
+<h4 id="tcp-stream-0">tcp stream 0:</h4>
+
+<p>Contains some encrypted data of different size, but we notice that the first 2 exchanged packets are of the same size: <strong>0x30</strong> which might be a key exchange between the two entities.
+the next picture shows the first <strong>0x30</strong> data sent from the malware to the <strong>C&amp;C</strong>
+<img src="/assets/img/flare-on/chall11/key_malware_c&amp;c.png" alt="dns_base64" /></p>
+
+<p><img src="/assets/img/flare-on/chall11/hex_stream0.png" alt="hex_stream0" /></p>
+
+<h4 id="tcp-stream-2">tcp stream 2:</h4>
+
+<p>Contains some SMBv2 encrypted data too, we can also notice that the first 2 packets have a data of size <strong>0x30</strong></p>
+
+<h4 id="tcp-stream-5">tcp stream 5</h4>
+
+<p>Contains some ftp communcation
+<img src="/assets/img/flare-on/chall11/ftp_communication.png" alt="ftp_communication" /></p>
+
+<h4 id="tcp-stream-6">tcp stream 6</h4>
+
+<p>Contains the uploaded file to the ftp server, notice the header <code class="language-plaintext highlighter-rouge">cryptar20180810</code> before the encrypted part.</p>
+
+<p><img src="/assets/img/flare-on/chall11/ftp_data.png" alt="ftp_communication" /></p>
+
+<h2 id="reverse-engineering-part">Reverse engineering part</h2>
+
+<p>By using IDA we can identify the main function that is responsible for the dns query located which performs the following operations:</p>
+
+<ul>
+  <li>Allocate memory to save the base64 encoded data of all the subdomains that are queried</li>
+  <li>Query the TXT record of an url starting from <code class="language-plaintext highlighter-rouge">aaa.asdflkjsadf.notatallsuspicio.us</code>, and save the base64 encoded data in memory</li>
+</ul>
+
+<p><img src="/assets/img/flare-on/chall11/dnsquery.png" alt="dnsquery" /></p>
+
+<ul>
+  <li>Increment the subdomain: <code class="language-plaintext highlighter-rouge">aab.asdflkjsadf.notatallsuspicio.us</code></li>
+</ul>
+
+<p><img src="/assets/img/flare-on/chall11/dns_domain_0.png" alt="dns_domain_0" /></p>
+
+<ul>
+  <li>Query the TXT record of that url, and concat it to the previous base64 data</li>
+</ul>
+
+<p>Then it decrypt the base64, and jump to it.</p>
+
+<p>Here we can be lazy and avoid the decryption part by replacing the base64 data from pcap into memory and replacing the base64 data from the live server, we first extract the base64 encoded data with <strong>tshark</strong> using the following command:</p>
+
+<p><code class="language-plaintext highlighter-rouge">tshark -r pcap.pcap -Y "dns.flags == 0x8580 and dns.txt" -T fields -e dns.txt</code></p>
+
+<p>then we can copy the data into memory using a python script inside IDA:</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="code"><pre><span class="n">start</span> <span class="o">=</span> <span class="mh">0x021B0000</span><span class="c1"># the address of the new allocated memory 
+</span>                  <span class="c1"># that contains the base64 encoded data
+</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">'base64_encoded_data'</span><span class="p">,</span> <span class="s">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="o">==</span> <span class="s">''</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">PatchByte</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="nb">ord</span><span class="p">(</span><span class="n">data</span><span class="p">))</span><span class="c1"># write a byte at memory pointed by "start"
+</span>        <span class="n">start</span> <span class="o">+=</span> <span class="mi">1</span>
+<span class="k">print</span> <span class="nb">hex</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></figure>
+
+<p>Next we have the second stage of the binary, after reversing it from top to bottom, we can see the following behaviour:</p>
+
+<ul>
+  <li>Initiate a socket to the <strong>C&amp;C server</strong></li>
+  <li>Generate a <strong>0x30</strong> bytes random key using CryptGenRandom</li>
+</ul>
+
+<p><img src="/assets/img/flare-on/chall11/creating_random_key.png" alt="creating_random_key" /></p>
+
+<ul>
+  <li>Send the generated key to the server</li>
+</ul>
+
+<p><img src="/assets/img/flare-on/chall11/send_malware_key.png" alt="send_malware_key" /></p>
+
+<ul>
+  <li>receive another <strong>0x30</strong> bytes key from the server</li>
+  <li>generate a new key by xoring each byte of the 2 keys and then xoring the result with the value <strong>0xAA</strong></li>
+</ul>
+
+<p>After that, the malware, awaits data from the server, decrypt it with a cryptographic algorithm using the generated key, and then decompress the decrypted data with gzip.</p>
+
+<p>Let’s be a lazy reversers and use the malware as a decryptor of the pcap encrypted data !!!</p>
+
+<p>We have to simulate the communication using the pcap file data, first we have to extract the packets that are interesting for us by using tshark again:</p>
+
+<p><code class="language-plaintext highlighter-rouge">tshark -r pcap.pcap -Y "tcp.stream eq 0 &amp;&amp; data" -T fields -e data</code></p>
+
+<p>note: The key that is sent from the malware to the <strong>C&amp;C</strong> server must be removed, we will inject it manually into memory, we just need to receive the key from the server, to generate the final key.</p>
+
+<p>Then add an entry to <code class="language-plaintext highlighter-rouge">hosts</code> file and point the domain name to <code class="language-plaintext highlighter-rouge">127.0.0.1</code></p>
+
+<p>The following script reads the extracted packets and send them to the connected client, the malware in our case.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+</pre></td><td class="code"><pre><span class="kn">import</span> <span class="nn">socket</span>
+<span class="kn">import</span> <span class="nn">binascii</span>
+<span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">ssock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="p">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+<span class="n">ssock</span><span class="p">.</span><span class="n">bind</span><span class="p">((</span><span class="s">'0.0.0.0'</span><span class="p">,</span> <span class="mi">9443</span><span class="p">))</span>
+<span class="n">ssock</span><span class="p">.</span><span class="n">listen</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">csock</span> <span class="o">=</span> <span class="n">ssock</span><span class="p">.</span><span class="n">accept</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">log</span><span class="p">.</span><span class="n">success</span><span class="p">(</span><span class="s">'connected</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">'stream0_data'</span><span class="p">,</span> <span class="s">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">pcap</span><span class="p">:</span>
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">pcap</span><span class="p">:</span>
+		<span class="k">if</span> <span class="n">line</span> <span class="o">!=</span> <span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">:</span>
+			<span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="p">.</span><span class="n">strip</span><span class="p">(</span><span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+			<span class="n">pause</span><span class="p">()</span>
+			<span class="k">print</span> <span class="n">line</span>
+			<span class="n">csock</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">binascii</span><span class="p">.</span><span class="n">unhexlify</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
+			<span class="n">log</span><span class="p">.</span><span class="n">success</span><span class="p">(</span><span class="s">'data sent'</span><span class="p">)</span>
+
+<span class="n">csock</span><span class="p">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">ssock</span><span class="p">.</span><span class="n">close</span><span class="p">()</span>
+</pre></td></tr></tbody></table></code></pre></figure>
+
+<p>next we breakpoint after the decompression of the gzip data, note that <code class="language-plaintext highlighter-rouge">esi</code> contains the address of the decrypted data.</p>
+
+<p><img src="/assets/img/flare-on/chall11/zlib_esi.png" alt="zlib_esi" /></p>
+
+<p>and automate the retrival of the decrypted data from memory:</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="code"><pre><span class="n">esi</span> <span class="o">=</span> <span class="n">get_reg_value</span><span class="p">(</span><span class="s">'esi'</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="s">''</span>
+<span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">Dword</span><span class="p">(</span><span class="n">esi</span><span class="p">)</span> <span class="o">==</span> <span class="mh">0xABABABAB</span><span class="p">:</span> <span class="c1"># 0xAB bytes are always present after the decrypted message,
+</span>        <span class="k">break</span>                    <span class="c1"># so I used it as a break
+</span>    <span class="n">data</span> <span class="o">+=</span> <span class="nb">chr</span><span class="p">(</span><span class="n">Byte</span><span class="p">(</span><span class="n">esi</span><span class="p">))</span>
+    <span class="n">esi</span> <span class="o">+=</span> <span class="mi">1</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">.</span><span class="n">replace</span><span class="p">(</span><span class="s">'</span><span class="se">\x00</span><span class="s">'</span><span class="p">,</span> <span class="s">''</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">data</span> <span class="c1">#print decrypted data
+</span><span class="n">resume_process</span><span class="p">()</span> <span class="c1">#iterate the loop till the next decryption
+</span><span class="n">wait_for_next_event</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="c1">#wait process until it hits the breakpoint</span>
+</pre></td></tr></tbody></table></code></pre></figure>
+
+<p>Now we are able to get see the pcap data in clear text for example:
+<img src="/assets/img/flare-on/chall11/list_dir_1.png" alt="list_dir_1" /></p>
+
+<p>after decrypting everything, there is an http request to a special web page, so I extracted the response of it, and got the following:</p>
+
+<p><img src="/assets/img/flare-on/chall11/pass_zip.png" alt="pass_zip" /></p>
+
+<p>let’s save that to later use, and decrypt the SMBv2 data, same principal we can extract the both keys and use them to decrypt the encrypted data.</p>
+
+<p>We can see that he uses a certain binary to encrypt a zip file, interesting</p>
+
+<p><img src="/assets/img/flare-on/chall11/crypt_zip.png" alt="crypt_zip" /></p>
+
+<p>After decrypting the remaining SMBv2 data, we can see the binary been transmitted, let’s extract that!</p>
+
+<p>We now have a DotNet binary we can use <strong>dnspy</strong> to decompile the it and <strong>de4dot</strong> to deobsfucate it, here is the structure of the code:</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_decompil.png" alt="dnspy_decompil" /></p>
+
+<p>It asks for an input file and an output file as arguments first</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_main.png" alt="dnspy_main" /></p>
+
+<p>the interesting part starts in this function:</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_http_request.png" alt="dnspy_http_request" /></p>
+
+<p>we can see see an HTTP request made to retrieve the file <strong>README.md</strong> from this url <code class="language-plaintext highlighter-rouge">https://github.com/johnsmith2121/react/blob/master/README.md</code>.</p>
+
+<p>and then it extracts a certain base64 encoded string and decode it</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_extract_base64_data.png" alt="dnspy_extract_base64_data" /></p>
+
+<p>awesome, next it copies data to a memory_stream, including the hash of the input file, it’s size, and it’s content</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_copy_data.png" alt="dnspy_copy_data" /></p>
+
+<p>after that, it calls a certain function to encrypt the stream with <strong>AES CBC</strong> as shown here</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_aes.png" alt="dnspy_aes" /></p>
+
+<p>after digging a bit, we can see that the <strong>IV</strong> used is <strong>hardcoded</strong>, and the <strong>key</strong> is the previous base64 decoded data, if you remember correctly, we noticed a header in the pcap <code class="language-plaintext highlighter-rouge">cryptar20180810</code> before the encrypted part, we can assume that the encryption happened in <strong>10/08/2018</strong>, which means that an <strong>older</strong> <strong>README.md</strong> version was used, so we have to extract the old base64 encoded data and use it as the key.</p>
+
+<p>For this part, I modified the binary and used it to decrypt the encrypted data from the pcap after removing the header of course, doing that we get a zip archive that asks for a password, hah let’s use the one found previously !</p>
+
+<p>We get two other files,</p>
+<ul>
+  <li>Another DotNet binary</li>
+  <li>A PNG</li>
+</ul>
+
+<p>Briefly, the goal of the binary is to hide text in a PNG, by settings its RBG to (1, 0, 0)</p>
+
+<p><img src="/assets/img/flare-on/chall11/dnspy_set_color.png" alt="dnspy_set_color" /></p>
+
+<p>Simple script to retrieve the text in the PNG</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="code"><pre><span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+
+<span class="n">im</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nb">open</span><span class="p">(</span><span class="s">'level9.png'</span><span class="p">)</span> 
+<span class="n">pix</span> <span class="o">=</span> <span class="n">im</span><span class="p">.</span><span class="n">load</span><span class="p">()</span>
+<span class="k">print</span> <span class="n">im</span><span class="p">.</span><span class="n">size</span>  
+<span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">im</span><span class="p">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+	<span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">im</span><span class="p">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+		<span class="k">if</span> <span class="n">pix</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">]</span> <span class="o">==</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">):</span>
+			<span class="n">pix</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="n">im</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="s">'flag.png'</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></figure>
+
+<p><img src="/assets/img/flare-on/chall11/flag.png" alt="flag" /></p>
+
+<p>If you liked my writeup, please take a look at my <a href="https://github.com/soolidsnake">github repo</a></p>
+
+  </div><a class="u-url" href="/2018/10/02/flare-on5-chall11.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+        <ul class="contact-list">
+          <li class="p-name"><ul class="social-media-list"><li><a href="https://github.com/soolidsnake"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">soolidsnake</span></a></li></ul>
+</br>
+          <li class="p-name">
+            <p>All tasks and writeups are copyrighted by their author. All images and the logo are copyrighted by me. If you would like to use them, please contact me :)</p>
+        </ul>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

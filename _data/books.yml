@@ -1,0 +1,35 @@
+---
+
+topics:
+  - name: "Reverse engineering"
+    books:
+      - name: "Reverse Engineering for Beginners"
+        link: "https://beginners.re/"
+      - name: "The IDA Pro Book: The Unofficial Guide to the World's Most Popular Disassembler"
+        link: "https://www.amazon.com/IDA-Pro-Book-Unofficial-Disassembler/dp/1593272898"
+      - name: "Reversing: Secrets of Reverse Engineering"
+        link: "https://www.amazon.fr/Reversing-Secrets-Engineering-Eldad-Eilam/dp/0764574817"
+
+
+  - name: "Exploitation"
+    books:
+      - name: "Hacking: The Art of Exploitation"
+        link: "https://www.amazon.fr/Hacking-Art-Exploitation-Jon-Erickson/dp/1593271441"
+      - name: "Gray Hat Hacking The Ethical Hacker's Handbook"
+        link: "https://www.amazon.com/Hacking-Ethical-Hackers-Handbook-Fourth/dp/0071832386"
+      - name: "The Shellcoder's Handbook: Discovering and Exploiting Security Holes"
+        link: "https://www.amazon.fr/Shellcoders-Handbook-Discovering-Exploiting-Security/dp/047008023X"
+
+
+  - name: "Web penetration"
+    books:
+      - name: "The Basics of Web Hacking: Tools and Techniques to Attack the Web"
+        link: "https://www.amazon.fr/Basics-Web-Hacking-Techniques-Attack/dp/0124166008"
+      - name: "The Web Application Hacker's Handbook: Finding and Exploiting Security Flaws"
+        link: "https://www.amazon.fr/Web-Application-Hackers-Handbook-Exploiting/dp/1118026470"
+
+
+  - name: "Digital forensic"
+    books:
+      - name: "The Art of Memory Forensics: Detecting Malware and Threats in Windows, Linux, and Mac Memory"
+        link: "https://www.amazon.fr/Art-Memory-Forensics-Detecting-Malware/dp/1118825098"

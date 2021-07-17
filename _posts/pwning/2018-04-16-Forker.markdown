@@ -1,0 +1,93 @@
+---
+layout: post
+title:  "Forker"
+date:   2018-04-16 15:53:06 +0100
+tag: pwning
+---
+## Please read the [disclaimer]({{ site.baseurl }}{% link 9.disclamer.md %})
+
+Hello, in this post I will talk about an exploitation challenge from `WPICTF`, I participated alone in it and I was ranked top 22 just by pwning stuff xD.
+
+There was 4 levels for this challenge all based on stack exploitation, the difficulty was raising in each `level + 1` which means more protections to bypass :D, so let's start from level1.
+
+# 1) Forker.Level1:
+
+![forker_level1_reverse0]({{ "/assets/img/forker_level1_reverse0.png" | absolute_url }})
+
+So our binary initiat a server using sockets, then waits for a client to connect, when it does it calls `fork` function, and then runs `check_password` function, let's check this latter one.
+
+![forker_level1_reverse1]({{ "/assets/img/forker_level1_reverse1.png" | absolute_url }})
+
+Just a simple buffer overflow, we have our buffer at `BP-0x50` and our index counter at `BP-0x04`, to be able to buffer overflow we have to make sure we don't overwrite our index_counter with junk, so in short we have to write 76 junk bytes + 8 bytes which represents our index + 4 other junk bytes.
+
+Running [checksec][checksec-gitgub] shows the following:
+
+![forker_level1_checksec]({{ "/assets/img/forker_level1_checksec.png" | absolute_url }})
+
+simple task right, well not so fast we still have a problem to deal with, so in short we can successfully call `system` and pop a shell, cool, but how are we gonna send commands to it and receive its output? it only reads from STDIN and writes to STDOUT haha..., here comes the savior `dup2` function, let's check its manual.
+
+![forker_level1_dup2]({{ "/assets/img/forker_level1_dup2.png" | absolute_url }})
+
+Yeah!, we can use this cool function to make a `I/O redirection`.
+
+so let's build a rop that calls `dup2` to set the correct redirection for input/output, then call for `system`.
+
+Here is my [exploit][exploit_forker.level1]
+
+
+# 2) Forker.Level2:
+
+![forker_level2_reverse0]({{ "/assets/img/forker_level2_reverse0.png" | absolute_url }})
+
+Let's [checksec][checksec-gitgub]
+
+![forker_level2_checksec]({{ "/assets/img/forker_level2_checksec.png" | absolute_url }})
+
+
+In level2 we have to bypass [Stack-Smashing Protector][CANARY_wiki]
+
+`Note : when a binary forks it self, the child inherit canary from its parent, it also inherit the loaded in a location address if PIE is enabled`
+
+The best and easy solution would be to bruteforce the canary byte by byte then overwrite the return address with a rop that pops a shell.
+
+
+Here is my [exploit][exploit_forker.level2]
+
+
+# 3) Forker.Level3:
+
+![forker_level3_reverse0]({{ "/assets/img/forker_level3_reverse0.png" | absolute_url }})
+
+let's [checksec][checksec-gitgub]
+
+![forker_level3_checksec]({{ "/assets/img/forker_level3_checksec.png" | absolute_url }})
+
+
+This getting harder and harder, now we have to bypass [PIE protection][PIE_wiki] too, my solution was also to brute force the return address.
+
+Checking the assembly code 
+
+![forker_level3_reverse1]({{ "/assets/img/forker_level3_reverse1.png" | absolute_url }})
+
+We see that before returning to `main`, it pops a value from the stack to a  global variable named `client_sockfd` which is our file descriptor of our connection, so we have to make sure to set its correct value when buffer overflowing.
+
+Here is my [exploit][exploit_forker.level3]
+
+
+
+
+
+
+[checksec-gitgub]:  https://github.com/slimm609/checksec.sh
+[exploit_forker.level1]: https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.1/full_exploit_1.py
+
+[exploit_forker.level1]: https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.1/full_exploit_1.py
+
+[exploit_forker.level2]: https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.2/full_exploit_2.py
+
+[exploit_forker.level3]: https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.3/full_exploit_3.py
+
+
+[CANARY_wiki]: https://fr.wikipedia.org/wiki/Stack-Smashing_Protector
+
+[PIE_wiki]: https://en.wikipedia.org/wiki/Position-independent_code

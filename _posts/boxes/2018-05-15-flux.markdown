@@ -1,0 +1,63 @@
+---
+layout: post
+title:  "Rooting Fluxcapacitor box"
+date:   2018-05-15 20:14:06 +0100
+tag: box
+---
+## Please read the [disclamer]({{ site.baseurl }}{% link 9.disclamer.md %})
+
+Hello this a **writeup** for a box from [HackTheBox][HackTheBox-link] which is focused mainly on ***WAF*** Bypassing.
+
+First things first, we launch a nmap to scan for open ports,
+```shell
+nmap -sC -sV 10.10.10.69 -T4 -v
+```
+
+![flux_nmap]({{ "/assets/img/flux_nmap.png" | absolute_url }})
+
+Cool port 80 is open, checking the source code we find the following
+
+![flux_source0]({{ "/assets/img/flux_source0.png" | absolute_url }})
+
+browsing to this `/sync` file, returns a forbidden page ummm... that's weird, I tried to curl it
+
+```shell
+curl "10.10.10.69/sync" -v
+```
+
+![flux_curl0]({{ "/assets/img/flux_curl0.png" | absolute_url }})
+
+Well... we have a **WAF** here :D, after poking around I found it blocks requests that contain `;` and other special characters.
+
+Let's run wfuzz to bruteforce some existing parameters
+
+```shell
+wfuzz -w /usr/share/wordlist/directory-list-2.3-medium.txt  --hh 19  "http://10.10.10.69/sync?FUZZ=random'stuff"
+```
+
+![flux_wfuzz0]({{ "/assets/img/flux_wfuzz0.png" | absolute_url }})
+
+great `opt` is the right parameter, after playing with it, I found out that it blocks words like `ls` `cat` etc ...
+this can be easily bypassed by adding quotes like the following `l's'` which equals `ls` this happens because all adjacent string literals are concatenated in Bash, by doing that I bypassed the WAF but still no command execution...
+
+After an extensive manual fuzzing, i found that if I put `opt=' i'd''` I get command execution !!!
+
+
+![flux_rce]({{ "/assets/img/flux_rce.png" | absolute_url }})
+
+cool, let's run `sudo -l`
+
+
+![flux_sudol]({{ "/assets/img/flux_sudol.png" | absolute_url }})
+
+We can execute `/home/themiddle/.monit` as root, let's check that file
+
+![flux_file_monit]({{ "/assets/img/flux_file_monit.png" | absolute_url }})
+
+Easy!, we just have to run this script and give it 2 arguments, the first one must be `cmd` and the second one our command base64 encoded and we are root !
+
+![flux_root]({{ "/assets/img/flux_root.png" | absolute_url }})
+
+
+
+[HackTheBox-link]: https://www.hackthebox.eu

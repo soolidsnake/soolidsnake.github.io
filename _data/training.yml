@@ -1,0 +1,9 @@
+---
+
+websites:
+  - name: "HackTheBox"
+    link: "https://www.hackthebox.eu"
+  - name: "RootMe"
+    link: "https://www.root-me.org"
+  - name: "CtfTime"
+    link: "http://ctftime.org"

