@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-07-18T05:07:35-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">HOME</title><subtitle>This website contains some usefull tutorials and my own write-ups for cyber security challenges</subtitle><entry><title type="html">HelloKitty Linux version malware analysis</title><link href="http://localhost:4000/2021/07/17/hellokitty_linux.html" rel="alternate" type="text/html" title="HelloKitty Linux version malware analysis" /><published>2021-07-17T12:08:00-05:00</published><updated>2021-07-17T12:08:00-05:00</updated><id>http://localhost:4000/2021/07/17/hellokitty_linux</id><content type="html" xml:base="http://localhost:4000/2021/07/17/hellokitty_linux.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-07-18T05:17:12-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">HOME</title><subtitle>This website contains some usefull tutorials and my own write-ups for cyber security challenges</subtitle><entry><title type="html">HelloKitty Linux version malware analysis</title><link href="http://localhost:4000/2021/07/17/hellokitty_linux.html" rel="alternate" type="text/html" title="HelloKitty Linux version malware analysis" /><published>2021-07-17T12:08:00-05:00</published><updated>2021-07-17T12:08:00-05:00</updated><id>http://localhost:4000/2021/07/17/hellokitty_linux</id><content type="html" xml:base="http://localhost:4000/2021/07/17/hellokitty_linux.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;h2 id=&quot;introduction&quot;&gt;&lt;strong&gt;Introduction&lt;/strong&gt;&lt;/h2&gt;
 &lt;p&gt;This report contains technical details of the new linux version of &lt;strong&gt;HelloKitty&lt;/strong&gt; that target VMware ESXi servers.&lt;/p&gt;
@@ -6,10 +6,11 @@
 &lt;p&gt;The encryption used by this variant is &lt;strong&gt;AES_CBC&lt;/strong&gt; and &lt;strong&gt;Elliptic-curve Diffie–Hellman (ECDH)&lt;/strong&gt; to protect the keys.&lt;/p&gt;
 
 &lt;h2 id=&quot;encryption-overview&quot;&gt;&lt;strong&gt;Encryption Overview&lt;/strong&gt;&lt;/h2&gt;
-&lt;p&gt;The malware generates an &lt;strong&gt;ECDH&lt;/strong&gt; keypair, then using a the hardcoded public key of the threat actor, it generates a secret key.
-An AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are randomly generated at run time, this key will be used to encrypt a file.&lt;/p&gt;
+&lt;p&gt;The malware generates an &lt;strong&gt;ECDH&lt;/strong&gt; keypair, then using the hardcoded public key of the threat actor, it generates an &lt;strong&gt;ECDH secret&lt;/strong&gt; key.&lt;/p&gt;
 
-&lt;p&gt;Note: the AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are different each time it encrypts a file.&lt;/p&gt;
+&lt;p&gt;then an AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are randomly generated at run time, this key will be used to encrypt a file.&lt;/p&gt;
+
+&lt;p&gt;Note: the AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are different each file.&lt;/p&gt;
 
 &lt;p&gt;The AES &lt;strong&gt;KEY/IV&lt;/strong&gt; is encrypted using a randomly generated &lt;strong&gt;IV&lt;/strong&gt; and the previous &lt;strong&gt;ECDH secret&lt;/strong&gt; key with AES algorithm.&lt;/p&gt;
 

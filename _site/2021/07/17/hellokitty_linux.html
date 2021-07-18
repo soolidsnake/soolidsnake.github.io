@@ -57,10 +57,11 @@
 <p>The encryption used by this variant is <strong>AES_CBC</strong> and <strong>Elliptic-curve Diffie–Hellman (ECDH)</strong> to protect the keys.</p>
 
 <h2 id="encryption-overview"><strong>Encryption Overview</strong></h2>
-<p>The malware generates an <strong>ECDH</strong> keypair, then using a the hardcoded public key of the threat actor, it generates a secret key.
-An AES <strong>KEY/IV</strong> are randomly generated at run time, this key will be used to encrypt a file.</p>
+<p>The malware generates an <strong>ECDH</strong> keypair, then using the hardcoded public key of the threat actor, it generates an <strong>ECDH secret</strong> key.</p>
 
-<p>Note: the AES <strong>KEY/IV</strong> are different each time it encrypts a file.</p>
+<p>then an AES <strong>KEY/IV</strong> are randomly generated at run time, this key will be used to encrypt a file.</p>
+
+<p>Note: the AES <strong>KEY/IV</strong> are different each file.</p>
 
 <p>The AES <strong>KEY/IV</strong> is encrypted using a randomly generated <strong>IV</strong> and the previous <strong>ECDH secret</strong> key with AES algorithm.</p>
 
