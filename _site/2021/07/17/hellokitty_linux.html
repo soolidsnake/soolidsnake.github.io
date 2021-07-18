@@ -51,10 +51,24 @@
   <div class="post-content e-content" itemprop="articleBody">
     <h2 id="please-read-the-disclaimer">Please read the <a href="/disclaimer/">disclaimer</a></h2>
 
-<h2 id="overview"><strong>Overview</strong></h2>
-<p>This report contains technical details of the new version of <strong>HelloKitty</strong> ransomware targeting Linux based systems that recently targeted some companies.</p>
+<h2 id="introduction"><strong>Introduction</strong></h2>
+<p>This report contains technical details of the new linux version of <strong>HelloKitty</strong> that target VMware ESXi servers.</p>
 
 <p>The encryption used by this variant is <strong>AES_CBC</strong> and <strong>Elliptic-curve Diffie–Hellman (ECDH)</strong> to protect the keys.</p>
+
+<h2 id="encryption-overview"><strong>Encryption Overview</strong></h2>
+<p>The malware generates an <strong>ECDH</strong> keypair, then using a the hardcoded public key of the threat actor, it generates a secret key.
+An AES <strong>KEY/IV</strong> are randomly generated at run time, this key will be used to encrypt a file.</p>
+
+<p>Note: the AES <strong>KEY/IV</strong> are different each time it encrypts a file.</p>
+
+<p>The AES <strong>KEY/IV</strong> is encrypted using a randomly generated <strong>IV</strong> and the previous <strong>ECDH secret</strong> key with AES algorithm.</p>
+
+<p>Finally a structure is populated with the ECDH public key of the malware, the AES <strong>KEY/IV</strong> used for file encryption and other stuff.</p>
+
+<p>The structure is appended with the ransom note and the encrypted file <code class="language-plaintext highlighter-rouge">.crypt</code></p>
+
+<p>The Threat actor can recover the <strong>ECDH secret</strong> to decrypt the encrypted <strong>AES KEY/IV</strong> used for encrypting the file with his Private ECDH key and the malware Public ECDH key.</p>
 
 <h3 id="ransom-note"><strong>Ransom Note</strong></h3>
 
@@ -107,13 +121,19 @@
   <li>Figure: Dynamically loading libcrypto API</li>
 </ul>
 
-<p>Looking at the array, we can see that each entry is structure of 3 pointers:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>	{
-		unsigned char* new_function_name;
-		unsigned char* old_function_name;
-		void* pointer_to_api;
-	}
-</code></pre></div></div>
+<p>Looking at the array, we can see that each entry is a structure of 3 pointers:</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="code"><pre>	<span class="p">{</span>
+		<span class="kt">unsigned</span> <span class="kt">char</span><span class="o">*</span> <span class="n">new_function_name</span><span class="p">;</span>
+		<span class="kt">unsigned</span> <span class="kt">char</span><span class="o">*</span> <span class="n">old_function_name</span><span class="p">;</span>
+		<span class="kt">void</span><span class="o">*</span> <span class="n">pointer_to_api</span><span class="p">;</span>
+	<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></figure>
 
 <p>First the ransomware tries to get the address of the function name stored in <strong>new_function_name</strong>, if not found (which means the library is old) it uses <strong>old_function_name</strong>, if the API was found , it’s pointer will be stored in <strong>pointer_to_api</strong></p>
 
@@ -166,8 +186,8 @@ This data is saved in a array of stucture of type</p>
 }
 </code></pre></div></div>
 
-<h3 id="kill-vm-porcesses--kill_vm"><strong>kill VM porcesses | kill_vm</strong></h3>
-<p>Using the previous array, the malware first tries to kill the process with a soft <code class="language-plaintext highlighter-rouge">esxcli vm process kill -t=soft -w=&lt;Process_PID&gt;</code> if it fails it uses hard option (force kill) <code class="language-plaintext highlighter-rouge">esxcli vm process kill -t=hard -w=&lt;Process_PID&gt;</code> the data it gets is from the structure</p>
+<h3 id="kill-vm-porcesses"><strong>kill VM porcesses</strong></h3>
+<p>Using the previous array, the malware first tries to kill the processes with a soft kill <code class="language-plaintext highlighter-rouge">esxcli vm process kill -t=soft -w=&lt;Process_PID&gt;</code> if it fails it uses a hard kill option <code class="language-plaintext highlighter-rouge">esxcli vm process kill -t=hard -w=&lt;Process_PID&gt;</code>.</p>
 
 <h3 id="recursive-file-search"><strong>Recursive file search</strong></h3>
 <p>It uses the paths given as command line arguments and explore recursively the directories using <strong>opendir</strong> <strong>readdir</strong>.</p>
@@ -255,7 +275,7 @@ then creates 2 strings, <code class="language-plaintext highlighter-rouge">filen
   <li>Figure: Malware try to set a lock on the file</li>
 </ul>
 
-<p>If the PID is bigger than 10 (not a system process), it will kill it with the command <code class="language-plaintext highlighter-rouge">kill -9 %d</code></p>
+<p>If the PID is greater than 10 (not a system process), it will kill it with the command <code class="language-plaintext highlighter-rouge">kill -9 &lt;PID&gt;</code></p>
 
 <p><img src="/assets/img/hellokitty_linux/20210716165020.png" alt="alt text" /></p>
 
@@ -267,7 +287,7 @@ In case of failure it will roll back to the original filename</p>
 
 <h3 id="encryption"><strong>Encryption</strong></h3>
 <h4 id="generation-of-keys"><strong>Generation of keys</strong></h4>
-<p>It derives an <strong>AES_256_CBC</strong> <strong>KEY</strong> and <strong>IV</strong> with libcrypto function <strong>EVP_BytesToKey</strong> with a randomly generated <strong>salt</strong> and <strong>data</strong> using <strong>RAND_bytes API</strong></p>
+<p>It derives an <strong>AES_256_CBC</strong> <strong>KEY</strong> and <strong>IV</strong> with libcrypto function <strong>EVP_BytesToKey</strong> with a randomly generated <strong>salt</strong> and <strong>data</strong> using <strong>RAND_bytes API</strong> that will be used for file content encryption.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210716181215.png" alt="alt text" /></p>
 
@@ -280,7 +300,7 @@ In case of failure it will roll back to the original filename</p>
   <li>Figure: Official documentation of OpenSSL API https://www.openssl.org/docs/man1.0.2/man3/EVP_BytesToKey.html</li>
 </ul>
 
-<p>Then it generates the client ECDH private/public keys.</p>
+<p>Then it generates the malware ECDH private/public keys.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210717160601.png" alt="alt text" /></p>
 <ul>
@@ -296,24 +316,30 @@ In case of failure it will roll back to the original filename</p>
   <li>Figure: Author public key</li>
 </ul>
 
-<p>Then It calls libcrypto api <strong>ECDH_compute_key</strong> to generate a secret.</p>
+<p>Then It calls libcrypto api <strong>ECDH_compute_key</strong> to generate an <strong>ECDH shared secret</strong>.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210716185432.png" alt="alt text" /></p>
 <ul>
   <li>Figure: Generate ECDH secret</li>
 </ul>
 
-<p>After that it populate a custom structure <code class="language-plaintext highlighter-rouge">(I named it custom_structure00)</code> of the following type with the <strong>AES KEY and IV</strong>, the size of the file.</p>
-<h1 id="write-what-bool-indicate"><strong>write what bool indicate</strong></h1>
+<p>After that it populate a custom structure <code class="language-plaintext highlighter-rouge">(I named it custom_structure00)</code> of the following type with the <strong>AES KEY, IV</strong> and the size of the file.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
-	unsigned char* save_AES_IV[0x10];
-	unsigned char* save_AES_KEY[0x20];
-	unsigned __int64  size_of_file;
-	unsigned int  defined_constant;
-	unsigned int alignemnt; 
-} custom_structure00;
-</code></pre></div></div>
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="code"><pre><span class="p">{</span>
+	<span class="kt">unsigned</span> <span class="kt">char</span><span class="o">*</span> <span class="n">save_AES_IV</span><span class="p">[</span><span class="mh">0x10</span><span class="p">];</span>
+	<span class="kt">unsigned</span> <span class="kt">char</span><span class="o">*</span> <span class="n">save_AES_KEY</span><span class="p">[</span><span class="mh">0x20</span><span class="p">];</span>
+	<span class="kt">unsigned</span> <span class="n">__int64</span>  <span class="n">size_of_file</span><span class="p">;</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span>  <span class="n">defined_constant</span><span class="p">;</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">alignemnt</span><span class="p">;</span> 
+<span class="p">}</span> <span class="n">custom_structure00</span><span class="p">;</span>
+</pre></td></tr></tbody></table></code></pre></figure>
 
 <p><img src="/assets/img/hellokitty_linux/20210716192439.png" alt="alt text" /></p>
 <ul>
@@ -325,34 +351,50 @@ In case of failure it will roll back to the original filename</p>
   <li>Figure: Example of the structure populated with data</li>
 </ul>
 
-<p>Then it encrypts the structure <code class="language-plaintext highlighter-rouge">custom_structure00</code> with the ECDH secret and a randomly generated IV of 16 bytes.</p>
+<p>Then it encrypts the structure <code class="language-plaintext highlighter-rouge">custom_structure00</code> using the <strong>ECDH secret</strong> and a randomly generated <strong>IV</strong> of 16 bytes with AES algorithm.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210716192621.png" alt="alt text" /></p>
 <ul>
-  <li>Figure: Encrypt the above structure with the ECDH secret</li>
+  <li>Figure: Encrypt the above structure with the <strong>ECDH secret</strong></li>
 </ul>
 
 <p>After that, it populates yet another important structure <code class="language-plaintext highlighter-rouge">custom_structure01</code> of following type:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
-	// The IV used to encrypt the structure that contain data about the AES key. | offset 0 - 0x10
-	unsigned char secret_IV[0x10];
-	// The size of custom_structure00 | offset 0x10 - 0x14
-	unsigned int size_of_custom_structure00;
-	// Encrypted custom_structure00 | offset 0x14 - 0x34
-	custom_structure00 encrypted_custom_structure00;
-	// Size of the client public key | offset 0x58 - x5c
-	unsigned int size_of_public_key ;
-	// Client public key | offset 0x5c - 0xa0
-	unsigned char public_key[0x44];
-	// Size of the sig | offset 0xa0 - 0xa4
-	unsigned int size of sig;
-	//  Sig | offset 0xa4 - 0xf0
-	unsigned char sig[0x47];
-} custom_structure01;
-</code></pre></div></div>
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="code"><pre><span class="p">{</span>
+	<span class="c1">// The IV used to encrypt the custom_structure00 structure. | offset 0 - 0x10</span>
+	<span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">secret_IV</span><span class="p">[</span><span class="mh">0x10</span><span class="p">];</span>
+	<span class="c1">// The size of custom_structure00 | offset 0x10 - 0x14</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">size_of_custom_structure00</span><span class="p">;</span>
+	<span class="c1">// Encrypted custom_structure00 | offset 0x14 - 0x34</span>
+	<span class="n">custom_structure00</span> <span class="n">encrypted_custom_structure00</span><span class="p">;</span>
+	<span class="c1">// Size of the client public key | offset 0x58 - x5c</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">size_of_public_key</span> <span class="p">;</span>
+	<span class="c1">// Client public key | offset 0x5c - 0xa0</span>
+	<span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">public_key</span><span class="p">[</span><span class="mh">0x44</span><span class="p">];</span>
+	<span class="c1">// Size of the sig | offset 0xa0 - 0xa4</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">size</span> <span class="n">of</span> <span class="n">sig</span><span class="p">;</span>
+	<span class="c1">//  Sig | offset 0xa4 - 0xf0</span>
+	<span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">sig</span><span class="p">[</span><span class="mh">0x47</span><span class="p">];</span>
+<span class="p">}</span> <span class="n">custom_structure01</span><span class="p">;</span>
+</pre></td></tr></tbody></table></code></pre></figure>
 
-<p>finally it writes to <code class="language-plaintext highlighter-rouge">filename + .README_TO_RESTORE</code> the ransomware note, then it append the previous structure at the end of the file.
+<p>Finally it writes to <code class="language-plaintext highlighter-rouge">filename + .README_TO_RESTORE</code> the ransomware note, then it append the previous structure at the end of the file.
 It also append the SHA256 of the <code class="language-plaintext highlighter-rouge">&lt;original file content + appended data&gt;</code> (see next)
 Example:</p>
 
@@ -362,14 +404,14 @@ Example:</p>
   <li><code class="language-plaintext highlighter-rouge">.README_TO_RESTORE</code> file tail, showcasing the above structure <code class="language-plaintext highlighter-rouge">(custom_structure01)</code> and the SHA256 hash of the file</li>
 </ul>
 
-<p>It then appended the same structure <code class="language-plaintext highlighter-rouge">(custom_structure01)</code> to the end of the target file.</p>
+<p>It then appended the same structure <code class="language-plaintext highlighter-rouge">(custom_structure01)</code> to the target file.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210717180410.png" alt="alt text" /></p>
 <ul>
   <li>Figure: Original content of the file + <code class="language-plaintext highlighter-rouge">(custom_structure01)</code></li>
 </ul>
 
-<p>Finally it reads the data of the target file and uses the <strong>AES key</strong> to encrypt it.</p>
+<p>Finally it reads the data of the target file and uses the file encryption <strong>AES key</strong> to encrypt it.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210717162254.png" alt="alt text" /></p>
 <ul>
@@ -381,7 +423,7 @@ Example:</p>
   <li>Figure: File encrypted</li>
 </ul>
 
-<p>Finally it appened again the structure + the sha256 of the file.</p>
+<p>Finally it append again the structure + the sha256 of the file.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210717180702.png" alt="alt text" /></p>
 
@@ -391,12 +433,9 @@ Example:</p>
 
 <h2 id="conclusion">Conclusion</h2>
 
-<p>This linux variant can target Virtual machines files, which can be crucial to companies with backup and replication.</p>
+<p>This linux variant can target Virtual machines files, which can be crucial to companies without backup and replication.</p>
 
 <p>The encryption scheme used utilize ECDH (Elliptic-curve Diffie–Hellman) algorithm, which means without the private key owned by the threat actor, it will be near impossible to decrypt the encrypted files.</p>
-
-<p>The Threat Actor(s) were successful in compromising multiple companies this last days (Mid July 2021).
-At the time of writing the chat is still accessible through the TOR network is still up for a certain compromised company.</p>
 
 <h2 id="yara-rule">YARA Rule</h2>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rule hellokitty_linux {
