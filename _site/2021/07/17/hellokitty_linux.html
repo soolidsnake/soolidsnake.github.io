@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="utf-8">
+  <meta name="google-site-verification" content="R8WxIY350MGoDTCcNxtiL2hERA_j2XihQ5ZZO7-DLNI" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
 <title>HelloKitty Linux version malware analysis | HOME</title>
-<meta name="generator" content="Jekyll v3.9.0" />
+<meta name="generator" content="Jekyll v4.2.1" />
 <meta property="og:title" content="HelloKitty Linux version malware analysis" />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="Please read the disclaimer" />
@@ -13,11 +14,9 @@
 <meta property="og:url" content="http://localhost:4000/2021/07/17/hellokitty_linux.html" />
 <meta property="og:site_name" content="HOME" />
 <meta property="og:type" content="article" />
-<meta property="article:published_time" content="2021-07-17T12:08:00-05:00" />
-<meta name="twitter:card" content="summary" />
-<meta property="twitter:title" content="HelloKitty Linux version malware analysis" />
+<meta property="article:published_time" content="2021-07-17T19:08:00+02:00" />
 <script type="application/ld+json">
-{"description":"Please read the disclaimer","@type":"BlogPosting","headline":"HelloKitty Linux version malware analysis","dateModified":"2021-07-17T12:08:00-05:00","datePublished":"2021-07-17T12:08:00-05:00","url":"http://localhost:4000/2021/07/17/hellokitty_linux.html","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2021/07/17/hellokitty_linux.html"},"@context":"https://schema.org"}</script>
+{"@type":"BlogPosting","headline":"HelloKitty Linux version malware analysis","url":"http://localhost:4000/2021/07/17/hellokitty_linux.html","datePublished":"2021-07-17T19:08:00+02:00","dateModified":"2021-07-17T19:08:00+02:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2021/07/17/hellokitty_linux.html"},"description":"Please read the disclaimer","@context":"https://schema.org"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="HOME" /></head>
 <body><header class="site-header" role="banner">
@@ -44,7 +43,7 @@
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">HelloKitty Linux version malware analysis</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="2021-07-17T12:08:00-05:00" itemprop="datePublished">Jul 17, 2021
+      <time class="dt-published" datetime="2021-07-17T19:08:00+02:00" itemprop="datePublished">Jul 17, 2021
       </time></p>
   </header>
 
@@ -52,20 +51,18 @@
     <h2 id="please-read-the-disclaimer">Please read the <a href="/disclaimer/">disclaimer</a></h2>
 
 <h2 id="introduction"><strong>Introduction</strong></h2>
-<p>This report contains technical details of the new linux version of <strong>HelloKitty</strong> that target VMware ESXi servers.</p>
+<p>This report contains technical details of the new linux version of <strong>HelloKitty</strong> that targets VMware ESXi servers.</p>
 
 <p>The encryption used by this variant is <strong>AES_CBC</strong> and <strong>Elliptic-curve Diffie–Hellman (ECDH)</strong> to protect the keys.</p>
 
 <h2 id="encryption-overview"><strong>Encryption Overview</strong></h2>
-<p>The malware generates an <strong>ECDH</strong> keypair, then using the hardcoded public key of the threat actor, it generates an <strong>ECDH secret</strong> key.</p>
+<p>The malware generates an <strong>ECDH</strong> keypair, then using the hardcoded public key of the threat actor, it generates an <strong>ECDH secret</strong> key, then an AES <strong>KEY/IV</strong> are randomly generated at run time, this key will be used to encrypt a file.</p>
 
-<p>then an AES <strong>KEY/IV</strong> are randomly generated at run time, this key will be used to encrypt a file.</p>
-
-<p>Note: the AES <strong>KEY/IV</strong> are different each file.</p>
+<p>Note: the AES <strong>KEY/IV</strong> are different for each file.</p>
 
 <p>The AES <strong>KEY/IV</strong> is encrypted using a randomly generated <strong>IV</strong> and the previous <strong>ECDH secret</strong> key with AES algorithm.</p>
 
-<p>Finally a structure is populated with the ECDH public key of the malware, the AES <strong>KEY/IV</strong> used for file encryption and other stuff.</p>
+<p>Finally a structure is populated with the ECDH public key of the malware, the encrypted AES <strong>KEY/IV</strong> used for file encryption and other stuff.</p>
 
 <p>The structure is appended with the ransom note and the encrypted file <code class="language-plaintext highlighter-rouge">.crypt</code></p>
 
@@ -280,7 +277,7 @@ then creates 2 strings, <code class="language-plaintext highlighter-rouge">filen
 
 <p><img src="/assets/img/hellokitty_linux/20210716165020.png" alt="alt text" /></p>
 
-<p>It then rename the file to <code class="language-plaintext highlighter-rouge">filename + .tmp_</code>
+<p>The malware then rename the file to <code class="language-plaintext highlighter-rouge">filename + .tmp_</code>
 then it will call a function (<strong>0x405D64</strong>) to encrypt the file. 
 In case of failure it will roll back to the original filename</p>
 
@@ -301,7 +298,7 @@ In case of failure it will roll back to the original filename</p>
   <li>Figure: Official documentation of OpenSSL API https://www.openssl.org/docs/man1.0.2/man3/EVP_BytesToKey.html</li>
 </ul>
 
-<p>Then it generates the malware ECDH private/public keys.</p>
+<p>Afterwards it generates the malware ECDH private/public keys.</p>
 
 <p><img src="/assets/img/hellokitty_linux/20210717160601.png" alt="alt text" /></p>
 <ul>
@@ -446,10 +443,8 @@ Example:</p>
         author = "@soolidsnakee"
         date = "2021-07-17"
     strings:
-        $str1 = "Your files have been encrypted and attackers exfiltrated over"
-        $str2 = "%s:%.2f GB in %.2f sec. %.4f GB"
-        $str3 = "progress %s:%.2f GB"
-        $str4 = "e:%d l:%d f:%s"
+        $str1 = ".crypt"
+        $str2 = ".README_TO_RESTORE"
         $str5 = "switch to daemon"
         $str6 = "esxcli vm process kill -t=hard -w=%d"
         $str7 = "work.log"

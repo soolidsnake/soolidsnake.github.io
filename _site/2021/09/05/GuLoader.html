@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="google-site-verification" content="R8WxIY350MGoDTCcNxtiL2hERA_j2XihQ5ZZO7-DLNI" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>GuLoader Anti reverse engineering techniques | HOME</title>
+<meta name="generator" content="Jekyll v4.2.1" />
+<meta property="og:title" content="GuLoader Anti reverse engineering techniques" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Please read the disclaimer" />
+<meta property="og:description" content="Please read the disclaimer" />
+<link rel="canonical" href="http://localhost:4000/2021/09/05/GuLoader.html" />
+<meta property="og:url" content="http://localhost:4000/2021/09/05/GuLoader.html" />
+<meta property="og:site_name" content="HOME" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-09-05T19:08:00+02:00" />
+<script type="application/ld+json">
+{"@type":"BlogPosting","headline":"GuLoader Anti reverse engineering techniques","url":"http://localhost:4000/2021/09/05/GuLoader.html","datePublished":"2021-09-05T19:08:00+02:00","dateModified":"2021-09-05T19:08:00+02:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2021/09/05/GuLoader.html"},"description":"Please read the disclaimer","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="HOME" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">HOME</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a><a class="page-link" href="/contact/">Contact</a><a class="page-link" href="/quotes/">Quotes</a><a class="page-link" href="/resources/">Training resources</a><a class="page-link" href="/disclaimer/">Disclaimer</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">GuLoader Anti reverse engineering techniques</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2021-09-05T19:08:00+02:00" itemprop="datePublished">Sep 5, 2021
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <h2 id="please-read-the-disclaimer">Please read the <a href="/disclaimer/">disclaimer</a></h2>
+
+<p>In this quick blog post, we take a look specifically at the Anti reverse engineer techniques used by a recent GuLoader sample.
+This blog post can be used a reference for other researchers to understand the techniques used by GuLoader.</p>
+
+<h3 id="code-obfuscation-through-jumps">Code obfuscation through jumps</h3>
+
+<p>We can see the malware obfuscate the assembly code by using unconditional jumps to mess up the disassembly.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906202548.png" alt="alt text" /></p>
+
+<h3 id="opaque-predicate-in-conditional-jumps">Opaque predicate in conditional jumps</h3>
+<p>In other word, it will always evaluate to either a false or a true statement, this is used to fool the disassembler that there is 2 paths but in reality it is just one single path.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906202918.png" alt="alt text" /></p>
+
+<h3 id="obfuscation-of-functions-parameters-through-arithmetic-calculation">Obfuscation of functions parameters through arithmetic calculation</h3>
+<p>In this example we see the parameter of <strong>get_func_address</strong> is xored multiple time.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906204419.png" alt="alt text" /></p>
+
+<h3 id="dynamic-retrieval-of-winapi-function-addresses">Dynamic retrieval of WinAPI function addresses</h3>
+<p>It first parse the <strong>PEB_LDR_DATA</strong> of <strong>PEB structure</strong> of the process, locates kernel32, then looks for <strong>LoadLibraryA</strong> function.
+Then the malware parse the library, hash function names with <strong>DJB2</strong> hashing algorithm and compare with the hash given as parameter to the function.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210907213532.png" alt="alt text" /></p>
+
+<h3 id="xoring-dexoring-the-text-instructions-to-break-the-disassembly-view">Xoring dexoring the .text instructions to break the disassembly view</h3>
+<p>Before calling a WINAPI, the malware xors the whole shellcode, then dexor it after calling the WINAPI function.
+The purpose of this technique is to break the dissasembly view (functions recognized by the disassembler, the graph view etc…)</p>
+
+<h3 id="check-for-hardware-and-software-breakpoints">Check for hardware and software breakpoints</h3>
+<p>The malware uses <strong>ZwGetThreadContext</strong> WINAPI to check if hardware breakpoints are set by checking DR0-7 registers.</p>
+
+<p>It also check for software breakpoints before calling a WINAPI function by comparing it’s first bytes to <strong>0xCC</strong> <strong>0X3CD</strong> <strong>0xB0F</strong>, if breakpoints are set the malware will crash itself.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906213747.png" alt="alt text" /></p>
+
+<h3 id="detect-virtual-machine-through-cpuid">Detect virtual machine through CPUID</h3>
+<p>Calling CPUID with eax set to 1 can be used to detect if the malicious code is running inside a virtual machine, a quick fix for this is to change the .vmx config file for vmware to always return 0 in the 31st bit.
+Example: <code class="language-plaintext highlighter-rouge">cpuid.1.ecx="0---:----:----:----:----:----:----:----"</code> to be added to the .vmx</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906214146.png" alt="alt text" /></p>
+
+<h3 id="check-if-it-is-running-in-a-64bit-machine">Check if it is running in a 64bit machine</h3>
+<p>The shellcode checks if the machine is a 64 bit machine, if yes it will switch to 64bit mode.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906214735.png" alt="alt text" /></p>
+
+<h3 id="patching-dbgbreakpoint---dbguiremotebreakin">Patching DbgBreakPoint &amp;&amp;  DbgUIRemoteBreakin</h3>
+<p>The malware patchs both <strong>DbgBreakPoint</strong> <strong>DbgUIRemoteBreakin</strong> to prevent debuggers from attaching to the process.</p>
+
+<h3 id="count-the-number-of-application-windows-using-enumwindows">Count the number of application windows using EnumWindows</h3>
+<p><strong>EnumWindows</strong> WINAPI is used to enumerate and count the open windows, this technique is used to detect sandboxes.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906220217.png" alt="alt text" /></p>
+
+<h3 id="check-for-qemu">Check for QEMU</h3>
+<p>Guloader tries to open the following two files <code class="language-plaintext highlighter-rouge">C:\Program Files\Qemu-ga\qemu-ga.exe</code>  <code class="language-plaintext highlighter-rouge">C:\Program Files\qga\qga.exe</code>, this files are related to Qemu emulator. It is used as sandbox detection</p>
+
+<h3 id="anti-debugging-ntsetinformationthread">anti debugging NtSetInformationThread</h3>
+<p><strong>NtSetInformationThread</strong> API with <strong>ThreadHideFromDebugger</strong> as parameter is used to hide the thread from a debugger, if a debugger is already present it will result in a crash.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906221314.png" alt="alt text" /></p>
+
+<h3 id="enumerate-windows-devices">Enumerate windows devices</h3>
+<p>The malware uses <strong>EnumDeviceDrivers</strong> and <strong>GetDeviceDriverBaseName</strong> to enumerate windows drivers, their names are hashed and compared to pre-hashed values.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906224620.png" alt="alt text" /></p>
+
+<h3 id="enumerate-installed-softwares">Enumerate installed softwares</h3>
+<p>It uses <strong>MsiEnumProductsA</strong> <strong>MsiGetProductInfoA</strong> WINAPI to enumerate installed softwares, the names are hashed then compared to pre-hashed values.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906225057.png" alt="alt text" /></p>
+
+<h3 id="enumerate-services">Enumerate Services</h3>
+<p>The malware uses <strong>OpenSCManagerA</strong> and <strong>EnumServicesStatusA</strong> winAPI to enumerate services on the machine, the names are hashed then compared to pre-hashed values.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210906230312.png" alt="alt text" /></p>
+
+<h3 id="retrieve-the-port-number-of-the-debugger-for-the-process-using-the-ntqueryinformationprocess">Retrieve the port number of the debugger for the process using the NtQueryInformationProcess</h3>
+<p>Guloader retrieve the port number of the debugger for the process using <strong>NtQueryInformationProcess</strong> API.</p>
+
+<p><img src="/assets/img/GuLoader_malware/20210905164300.png" alt="alt text" /></p>
+
+<h3 id="injecting-shellcode-through-process-hollowing">Injecting shellcode through process hollowing</h3>
+<p>The malware uses process hollowing injection technique to inject a similar shellcode with different capabilities, the following outlines the execution flow of the malware:</p>
+<ul>
+  <li>It create a suspended process <code class="language-plaintext highlighter-rouge">RegAsm.exe</code> or  <code class="language-plaintext highlighter-rouge">MSBuild.exe</code> with  <strong>CreateProcessInternalW</strong> API.</li>
+</ul>
+
+<p><img src="/assets/img/GuLoader_malware/20210907210239.png" alt="alt text" /></p>
+
+<ul>
+  <li>It opens a handle to <code class="language-plaintext highlighter-rouge">C:\Windows\syswow64\msvbvm60.dll</code> with <strong>ZwOpenFile</strong> WINAPI.</li>
+</ul>
+
+<p><img src="/assets/img/GuLoader_malware/20210907210408.png" alt="alt text" /></p>
+
+<ul>
+  <li>It creates a new section with <code class="language-plaintext highlighter-rouge">ZwCreateSection</code> WINAPI.</li>
+  <li>It maps the section in the created process using <code class="language-plaintext highlighter-rouge">NtMapViewOfSection</code> WINAPI.</li>
+  <li>It writes the shellcode to the memory with <code class="language-plaintext highlighter-rouge">NtWriteVirtualMemory</code> WINAPI.</li>
+  <li>It change the Instruction pointer of the process to the start of the injected shellcode with <code class="language-plaintext highlighter-rouge">NtSetContextThread</code> WINAPI.</li>
+  <li>Finally, it resume the thead with <code class="language-plaintext highlighter-rouge">NtResumeThread</code> WINAPI.</li>
+</ul>
+
+<p>After bypassing all the anti reverse engineering mechanism, we can dump the second shellcode just before it calls for <strong>NtWriteVirtualMemory</strong>, another solution is to change the first bytes of the new shellcode to <code class="language-plaintext highlighter-rouge">jmp 0x00</code>, then we can attach to it with a debugger and restore the original bytes.</p>
+
+<p>The second shellcode is a copy of the first shellcode so all the anti reverse engineering mechanism enumerated above applies to it.
+The second shellcode downloads a payload from a google drive link and execute it.</p>
+
+<h3 id="some-hashes-for-reference">Some hashes for reference:</h3>
+<ul>
+  <li>getcontextthread FAD4F3C4</li>
+  <li>queryvirtualmemory 0F9CE5538</li>
+  <li>kernel32 48522397</li>
+  <li>LoadLibraryA 645AAB39</li>
+  <li>NtAllocateVirtualMemory 4E829A87</li>
+  <li>MSVBVM60 82AAF280</li>
+  <li>ZwProtectVirtualMemory 85E648F6</li>
+  <li>DbgBreakPoint 676E43AA</li>
+  <li>DbgUiRemoteBreakin 0A3B0C16C</li>
+  <li>TerminateProcess 9E059483</li>
+  <li>EnumWindows BB301E26</li>
+  <li>ExitProcess 98EC4D6B</li>
+  <li>CreateFileA 97F9AE3</li>
+  <li>NtSetInformationThread 0E9BE1A6F</li>
+  <li>EnumDeviceDrivers 96ABEF9C</li>
+  <li>vmmouse.sys 0D46C4133</li>
+  <li>vm3dmp_loader.sys DC8850D2</li>
+  <li>vm3dmp.sys 2B5C7A6B</li>
+  <li>vmusbmouse.sys 5440D1F6</li>
+  <li>MsiEnumProductsA 0E3F98748</li>
+  <li>MsiGetProductInfoA 568AB98E</li>
+  <li>ShellExecuteW 2A433AAE</li>
+</ul>
+
+  </div><a class="u-url" href="/2021/09/05/GuLoader.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+        <ul class="contact-list">
+          <li class="p-name"><ul class="social-media-list"><li><a href="https://github.com/soolidsnake"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">soolidsnake</span></a></li></ul>
+</br>
+          <li class="p-name">
+            <p>All tasks and writeups are copyrighted by their author. All images and the logo are copyrighted by me. If you would like to use them, please contact me :)</p>
+        </ul>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>

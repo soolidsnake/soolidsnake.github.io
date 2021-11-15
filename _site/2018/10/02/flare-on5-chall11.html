@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="utf-8">
+  <meta name="google-site-verification" content="R8WxIY350MGoDTCcNxtiL2hERA_j2XihQ5ZZO7-DLNI" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.7.1 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
 <title>Flare-on challenge 11 | HOME</title>
-<meta name="generator" content="Jekyll v3.9.0" />
+<meta name="generator" content="Jekyll v4.2.1" />
 <meta property="og:title" content="Flare-on challenge 11" />
 <meta property="og:locale" content="en_US" />
 <meta name="description" content="Please read the disclaimer" />
@@ -13,11 +14,9 @@
 <meta property="og:url" content="http://localhost:4000/2018/10/02/flare-on5-chall11.html" />
 <meta property="og:site_name" content="HOME" />
 <meta property="og:type" content="article" />
-<meta property="article:published_time" content="2018-10-02T12:08:00-05:00" />
-<meta name="twitter:card" content="summary" />
-<meta property="twitter:title" content="Flare-on challenge 11" />
+<meta property="article:published_time" content="2018-10-02T19:08:00+02:00" />
 <script type="application/ld+json">
-{"description":"Please read the disclaimer","@type":"BlogPosting","headline":"Flare-on challenge 11","dateModified":"2018-10-02T12:08:00-05:00","datePublished":"2018-10-02T12:08:00-05:00","url":"http://localhost:4000/2018/10/02/flare-on5-chall11.html","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2018/10/02/flare-on5-chall11.html"},"@context":"https://schema.org"}</script>
+{"@type":"BlogPosting","headline":"Flare-on challenge 11","url":"http://localhost:4000/2018/10/02/flare-on5-chall11.html","datePublished":"2018-10-02T19:08:00+02:00","dateModified":"2018-10-02T19:08:00+02:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2018/10/02/flare-on5-chall11.html"},"description":"Please read the disclaimer","@context":"https://schema.org"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="HOME" /></head>
 <body><header class="site-header" role="banner">
@@ -44,7 +43,7 @@
   <header class="post-header">
     <h1 class="post-title p-name" itemprop="name headline">Flare-on challenge 11</h1>
     <p class="post-meta">
-      <time class="dt-published" datetime="2018-10-02T12:08:00-05:00" itemprop="datePublished">Oct 2, 2018
+      <time class="dt-published" datetime="2018-10-02T19:08:00+02:00" itemprop="datePublished">Oct 2, 2018
       </time></p>
   </header>
 
@@ -148,7 +147,7 @@ the next picture shows the first <strong>0x30</strong> data sent from the malwar
 </span>
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">'base64_encoded_data'</span><span class="p">,</span> <span class="s">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
     <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">data</span> <span class="o">==</span> <span class="s">''</span><span class="p">:</span>
             <span class="k">break</span>
         <span class="n">PatchByte</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="nb">ord</span><span class="p">(</span><span class="n">data</span><span class="p">))</span><span class="c1"># write a byte at memory pointed by "start"
@@ -215,23 +214,23 @@ the next picture shows the first <strong>0x30</strong> data sent from the malwar
 <span class="kn">import</span> <span class="nn">binascii</span>
 <span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
 
-<span class="n">ssock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="p">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
-<span class="n">ssock</span><span class="p">.</span><span class="n">bind</span><span class="p">((</span><span class="s">'0.0.0.0'</span><span class="p">,</span> <span class="mi">9443</span><span class="p">))</span>
-<span class="n">ssock</span><span class="p">.</span><span class="n">listen</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">csock</span> <span class="o">=</span> <span class="n">ssock</span><span class="p">.</span><span class="n">accept</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">ssock</span> <span class="o">=</span> <span class="n">socket</span><span class="o">.</span><span class="n">socket</span><span class="p">(</span><span class="n">socket</span><span class="o">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="o">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+<span class="n">ssock</span><span class="o">.</span><span class="n">bind</span><span class="p">((</span><span class="s">'0.0.0.0'</span><span class="p">,</span> <span class="mi">9443</span><span class="p">))</span>
+<span class="n">ssock</span><span class="o">.</span><span class="n">listen</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">csock</span> <span class="o">=</span> <span class="n">ssock</span><span class="o">.</span><span class="n">accept</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 
-<span class="n">log</span><span class="p">.</span><span class="n">success</span><span class="p">(</span><span class="s">'connected</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+<span class="n">log</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s">'connected</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s">'stream0_data'</span><span class="p">,</span> <span class="s">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">pcap</span><span class="p">:</span>
 	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">pcap</span><span class="p">:</span>
 		<span class="k">if</span> <span class="n">line</span> <span class="o">!=</span> <span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">:</span>
-			<span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="p">.</span><span class="n">strip</span><span class="p">(</span><span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
+			<span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">'</span><span class="se">\n</span><span class="s">'</span><span class="p">)</span>
 			<span class="n">pause</span><span class="p">()</span>
 			<span class="k">print</span> <span class="n">line</span>
-			<span class="n">csock</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">binascii</span><span class="p">.</span><span class="n">unhexlify</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
-			<span class="n">log</span><span class="p">.</span><span class="n">success</span><span class="p">(</span><span class="s">'data sent'</span><span class="p">)</span>
+			<span class="n">csock</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">binascii</span><span class="o">.</span><span class="n">unhexlify</span><span class="p">(</span><span class="n">line</span><span class="p">))</span>
+			<span class="n">log</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="s">'data sent'</span><span class="p">)</span>
 
-<span class="n">csock</span><span class="p">.</span><span class="n">close</span><span class="p">()</span>
-<span class="n">ssock</span><span class="p">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">csock</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="n">ssock</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></td></tr></tbody></table></code></pre></figure>
 
 <p>next we breakpoint after the decompression of the gzip data, note that <code class="language-plaintext highlighter-rouge">esi</code> contains the address of the decrypted data.</p>
@@ -258,7 +257,7 @@ the next picture shows the first <strong>0x30</strong> data sent from the malwar
 </span>        <span class="k">break</span>                    <span class="c1"># so I used it as a break
 </span>    <span class="n">data</span> <span class="o">+=</span> <span class="nb">chr</span><span class="p">(</span><span class="n">Byte</span><span class="p">(</span><span class="n">esi</span><span class="p">))</span>
     <span class="n">esi</span> <span class="o">+=</span> <span class="mi">1</span>
-<span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">.</span><span class="n">replace</span><span class="p">(</span><span class="s">'</span><span class="se">\x00</span><span class="s">'</span><span class="p">,</span> <span class="s">''</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">'</span><span class="se">\x00</span><span class="s">'</span><span class="p">,</span> <span class="s">''</span><span class="p">)</span>
 <span class="k">print</span> <span class="n">data</span> <span class="c1">#print decrypted data
 </span><span class="n">resume_process</span><span class="p">()</span> <span class="c1">#iterate the loop till the next decryption
 </span><span class="n">wait_for_next_event</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="c1">#wait process until it hits the breakpoint</span>
@@ -334,15 +333,15 @@ the next picture shows the first <strong>0x30</strong> data sent from the malwar
 11
 </pre></td><td class="code"><pre><span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
 
-<span class="n">im</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nb">open</span><span class="p">(</span><span class="s">'level9.png'</span><span class="p">)</span> 
-<span class="n">pix</span> <span class="o">=</span> <span class="n">im</span><span class="p">.</span><span class="n">load</span><span class="p">()</span>
-<span class="k">print</span> <span class="n">im</span><span class="p">.</span><span class="n">size</span>  
-<span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">im</span><span class="p">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-	<span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">im</span><span class="p">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+<span class="n">im</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="nb">open</span><span class="p">(</span><span class="s">'level9.png'</span><span class="p">)</span> 
+<span class="n">pix</span> <span class="o">=</span> <span class="n">im</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+<span class="k">print</span> <span class="n">im</span><span class="o">.</span><span class="n">size</span>  
+<span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+	<span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">im</span><span class="o">.</span><span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
 		<span class="k">if</span> <span class="n">pix</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">]</span> <span class="o">==</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">):</span>
 			<span class="n">pix</span><span class="p">[</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
-<span class="n">im</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="s">'flag.png'</span><span class="p">)</span>
+<span class="n">im</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s">'flag.png'</span><span class="p">)</span>
 </pre></td></tr></tbody></table></code></pre></figure>
 
 <p><img src="/assets/img/flare-on/chall11/flag.png" alt="flag" /></p>

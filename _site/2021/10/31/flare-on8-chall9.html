@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="google-site-verification" content="R8WxIY350MGoDTCcNxtiL2hERA_j2XihQ5ZZO7-DLNI" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Flare-on8 challenge 9 | HOME</title>
+<meta name="generator" content="Jekyll v4.2.1" />
+<meta property="og:title" content="Flare-on8 challenge 9" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Please read the disclaimer" />
+<meta property="og:description" content="Please read the disclaimer" />
+<link rel="canonical" href="http://localhost:4000/2021/10/31/flare-on8-chall9.html" />
+<meta property="og:url" content="http://localhost:4000/2021/10/31/flare-on8-chall9.html" />
+<meta property="og:site_name" content="HOME" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-10-31T00:05:00+02:00" />
+<script type="application/ld+json">
+{"@type":"BlogPosting","headline":"Flare-on8 challenge 9","url":"http://localhost:4000/2021/10/31/flare-on8-chall9.html","datePublished":"2021-10-31T00:05:00+02:00","dateModified":"2021-10-31T00:05:00+02:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2021/10/31/flare-on8-chall9.html"},"description":"Please read the disclaimer","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/main.css"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="HOME" /></head>
+<body><header class="site-header" role="banner">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/">HOME</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/about/">About</a><a class="page-link" href="/contact/">Contact</a><a class="page-link" href="/quotes/">Quotes</a><a class="page-link" href="/resources/">Training resources</a><a class="page-link" href="/disclaimer/">Disclaimer</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Flare-on8 challenge 9</h1>
+    <p class="post-meta">
+      <time class="dt-published" datetime="2021-10-31T00:05:00+02:00" itemprop="datePublished">Oct 31, 2021
+      </time></p>
+  </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <h2 id="please-read-the-disclaimer">Please read the <a href="/disclaimer/">disclaimer</a></h2>
+
+<p>A quick static analysis of the binary main function shows invalid instructions between valid ones, we notice the use of instructions that will eventually generate an exception example :</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>xor eax, eax
+div eax
+</code></pre></div></div>
+
+<p>An experienced malware analyst will recognize the obfuscation technique were the binary registers exception handler(s) (SEH or VEH) that patch the code at run time and restore the execution flow.</p>
+
+<p>Using TinyTracer <code class="language-plaintext highlighter-rouge">https://github.com/hasherezade/tiny_tracer</code> by <code class="language-plaintext highlighter-rouge">@hasherezade</code>, I noticed the use of <code class="language-plaintext highlighter-rouge">addvectoredexceptionhandler</code> WINAPI, to make static analysis easier we can load the .tag file to IDA PRO.</p>
+
+<p><img src="/assets/img/flare-on8/20211114203551.png" alt="alt text" /></p>
+
+<h3 id="veh-handler-analysis">VEH handler analysis</h3>
+
+<p><img src="/assets/img/flare-on8/20211114203604.png" alt="alt text" /></p>
+
+<p>Thanks to Tinytracer comments, we notice that the function <code class="language-plaintext highlighter-rouge">0x4054b0</code> fetch the address of <code class="language-plaintext highlighter-rouge">VirtualProtect</code>, it takes 2 parameters that look like hashes. a deeper analysis shows that this function is used to dynamically import functions were the second argument is the hash of the functon name.</p>
+
+<p>We notice a second call to <code class="language-plaintext highlighter-rouge">0x4054b0</code> function with edx, and ecx as arguments, going back to the main function before the exception occurred we see the 2 hashes are loaded into ecx, and edx.</p>
+
+<p><img src="/assets/img/flare-on8/20211114204629.png" alt="alt text" /></p>
+
+<p>the return value (a function pointer) is written to <code class="language-plaintext highlighter-rouge">ContextRecord-&gt;eax</code>.
+Next a call to <code class="language-plaintext highlighter-rouge">VirtualProtect</code> to set the memory writable followed by a patch at offset <code class="language-plaintext highlighter-rouge">EIP+3</code> with the opcode <code class="language-plaintext highlighter-rouge">call eax (0XD0FF)</code> then increments <code class="language-plaintext highlighter-rouge">ContextRecord-&gt;EIP</code> by 3 and finally calls <code class="language-plaintext highlighter-rouge">VirtualProtect</code> to remove the write attribute.</p>
+
+<p>I wrote the following python script to fix the code and get a clean disassembly view for static analysis</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">idautils</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">idaapi</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">idc</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="c1">#list of used instructions that generate exceptions 
+#33 FF F7 F7
+#33 C0 8B 00
+#33 C0 f7 f0
+#33 F6 F7 F6 xor     esi, esi ; div     esi
+</span>
+<span class="n">seg</span> <span class="o">=</span> <span class="n">get_segm_by_name</span><span class="p">(</span><span class="s">".text"</span><span class="p">)</span>
+<span class="n">addr</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">start_ea</span>
+<span class="n">end_seg</span> <span class="o">=</span> <span class="n">seg</span><span class="o">.</span><span class="n">end_ea</span>
+
+<span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="mh">0xf7f7ff33</span><span class="p">,</span> <span class="mh">0x008bc033</span><span class="p">,</span> <span class="mh">0xf0f7c033</span><span class="p">,</span> <span class="mh">0xf6f7f633</span><span class="p">]</span>
+
+
+<span class="k">while</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="n">end_seg</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">ida_bytes</span><span class="o">.</span><span class="n">get_dword</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="nb">hex</span><span class="p">(</span><span class="n">addr</span><span class="p">))</span>
+        <span class="n">ida_bytes</span><span class="o">.</span><span class="n">patch_word</span><span class="p">(</span><span class="n">addr</span><span class="o">+</span><span class="mi">5</span><span class="p">,</span> <span class="mh">0xd0ff</span><span class="p">)</span>
+        <span class="n">ida_bytes</span><span class="o">.</span><span class="n">patch_byte</span><span class="p">(</span><span class="n">addr</span><span class="o">+</span><span class="mi">4</span><span class="p">,</span> <span class="mh">0x90</span><span class="p">)</span>
+    <span class="n">addr</span> <span class="o">+=</span> <span class="mi">1</span>
+</code></pre></div></div>
+
+<h3 id="anti-reverse-engineering-techniques">Anti reverse engineering techniques</h3>
+<p>We can notice the usage of different anti reverse engineer techniques, I will enumerate some of them:</p>
+<ul>
+  <li><strong>Check of hardware breakpoints</strong></li>
+  <li><strong>Patch DbgUiRemoteBreakin DbgBreakPoint</strong></li>
+  <li><strong>Check PEB BeingDebugged flag</strong></li>
+</ul>
+
+<p>We can bypass the anti reverse engineer techniques by noping or overstepping ( I will not go in details due to time restriction).</p>
+
+<h3 id="network-packet-sniffing">Network packet sniffing</h3>
+
+<p><img src="/assets/img/flare-on8/20211114203654.png" alt="alt text" /></p>
+
+<p>The function <strong>0x403a70</strong> configure a network listener in promiscuous mode on the interface given as <code class="language-plaintext highlighter-rouge">ARGV[1]</code>.</p>
+
+<p>After that a thread is created to execute the function <strong>0x404310</strong>. This function parses the incoming packets looking for UDP packets on port <strong>4356</strong> with specific flags set.
+If the checks are successful, the <strong>UDP</strong> data is written to a structure that will be read by another thread executing the function <strong>0x404310</strong>.</p>
+
+<h3 id="analysing-the-function-0x404310">Analysing the function <strong>0x404310</strong></h3>
+
+<p>The function has basically 3 blocks of instructions that will be executed according to the first Dword of the UDP data packet (0x0, 0x1, 0x2).</p>
+
+<p><img src="/assets/img/flare-on8/20211114203704.png" alt="alt text" /></p>
+
+<h4 id="command-0">Command #0:</h4>
+<p>This command decrypts a fake flag from memory, we can dismiss it.</p>
+
+<h4 id="command-1">Command #1:</h4>
+<p>This command expects another Dword followed by a string, the Dword is the size of the string (including <strong>\x00</strong>)
+Then 4 interesting keywords are decrypted <strong>g0d</strong>, <strong>L0ve</strong>, <strong>s3cret</strong> and <strong>5Ex</strong>. a routine checks if the input is equal to one of the keywords, if yes, it will calculate the hash of the string and save it to a buffer.
+In total we will have 4 buffers holding the hash of each keyword.</p>
+
+<h4 id="command-2">Command #2:</h4>
+<p>And finally the last command also expects a Dword (size of string) and the string <code class="language-plaintext highlighter-rouge">MZ</code>.
+It uses the buffers populated with the previous hashes to decrypt the flag.</p>
+
+<p>Using netcat and python we can get the flag with the following commands</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python -c 'print "\x02\x00\x00\x00" + "\x04\x00\x00\x00" + "g0d\x00"' | nc -u 172.16.45.128 4356
+python -c 'print "\x02\x00\x00\x00" + "\x04\x00\x00\x00" + "5Ex\x00"' | nc -u 172.16.45.128 4356
+python -c 'print "\x02\x00\x00\x00" + "\x07\x00\x00\x00" + "s3cret\x00"' | nc -u 172.16.45.128 4356
+python -c 'print "\x02\x00\x00\x00" + "\x05\x00\x00\x00" + "L0ve\x00"' | nc -u 172.16.45.128 4356
+# get flag
+python -c 'print "\x03\x00\x00\x00" + "\x03\x00\x00\x00" + "MZ\x00"' | nc -u 172.16.45.128 4356
+</code></pre></div></div>
+
+  </div><a class="u-url" href="/2021/10/31/flare-on8-chall9.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+        <ul class="contact-list">
+          <li class="p-name"><ul class="social-media-list"><li><a href="https://github.com/soolidsnake"><svg class="svg-icon"><use xlink:href="/assets/minima-social-icons.svg#github"></use></svg> <span class="username">soolidsnake</span></a></li></ul>
+</br>
+          <li class="p-name">
+            <p>All tasks and writeups are copyrighted by their author. All images and the logo are copyrighted by me. If you would like to use them, please contact me :)</p>
+        </ul>
+    </div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
