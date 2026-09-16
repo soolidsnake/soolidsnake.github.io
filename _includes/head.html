@@ -4,11 +4,6 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {%- seo -%}
-  {%- assign social_image = page.social_image | default: site.social_image -%}
-  {%- assign social_image_url = social_image | absolute_url -%}
-  <meta property="og:image" content="{{ social_image_url }}">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="{{ social_image_url }}">
   <link rel="stylesheet" href="{{ "/assets/main.css" | relative_url }}">
   {%- feed_meta -%}
   {%- if jekyll.environment == 'production' and site.google_analytics -%}
